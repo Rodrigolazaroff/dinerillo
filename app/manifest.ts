@@ -1,0 +1,44 @@
+import type { MetadataRoute } from "next";
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: "Rentifay",
+    short_name: "Rentifay",
+    description: "Control de alquileres: cobros, aumentos, gastos y rentabilidad.",
+    start_url: "/",
+    scope: "/",
+    display: "standalone",
+    orientation: "portrait",
+    background_color: "#f7f7f5",
+    theme_color: "#1f4b6e",
+    lang: "es-AR",
+    dir: "ltr",
+    categories: ["finance", "productivity"],
+    icons: [
+      { src: "/icons/icono-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/icons/icono-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      /*
+       * Android recorta el icono con la forma que tenga el launcher (círculo,
+       * squircle, gota). Sin una entrada maskable con aire de sobra usa la de
+       * "any" y le come los bordes a la marca.
+       */
+      { src: "/icons/maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+    ],
+    shortcuts: [
+      {
+        name: "Registrar cobro",
+        short_name: "Cobro",
+        description: "Cargar un cobro que entró.",
+        url: "/cobros",
+        icons: [{ src: "/icons/icono-192.png", sizes: "192x192", type: "image/png" }],
+      },
+      {
+        name: "Cargar gasto",
+        short_name: "Gasto",
+        description: "Anotar un gasto de una propiedad.",
+        url: "/gastos",
+        icons: [{ src: "/icons/icono-192.png", sizes: "192x192", type: "image/png" }],
+      },
+    ],
+  };
+}

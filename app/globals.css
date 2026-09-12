@@ -1,0 +1,137 @@
+@import "tailwindcss";
+
+@theme {
+  /* Base: gris cálido, no blanco puro. Se lee mejor con sol en la calle. */
+  --color-fondo: #f7f7f5;
+  --color-papel: #ffffff;
+  --color-tinta: #131316;
+  --color-suave: #56565e;
+  --color-tenue: #8a8a93;
+  --color-borde: #e6e5e0;
+  --color-linea: #efeee9;
+
+  /* Marca. Azul petróleo: no choca con los tres estados de cobro. */
+  --color-acento: #1f4b6e;
+  --color-acento-claro: #eaf0f5;
+
+  /* Estados de una cuota. Nunca van solos: siempre con texto al lado. */
+  --color-ok: #0f7a38;
+  --color-ok-claro: #e9f6ee;
+  --color-espera: #92500b;
+  --color-espera-claro: #fdf4e6;
+  --color-peligro: #b3261e;
+  --color-peligro-claro: #fdeceb;
+
+  /*
+   * Colores de los gráficos. Orden fijo, nunca rotado: el color sigue a la
+   * propiedad, no a su posición en el ranking. Validados para daltonismo
+   * (protan/deutan/tritan) sobre fondo blanco.
+   */
+  --color-serie-1: #2a78d6;
+  --color-serie-2: #eb6834;
+  --color-serie-3: #1baf7a;
+  --color-serie-4: #eda100;
+  --color-serie-5: #e87ba4;
+  --color-serie-6: #008300;
+  --color-serie-7: #4a3aa7;
+  --color-serie-8: #e34948;
+  /* Gris de contexto: lo que se espera cobrar, contra lo que ya entró. */
+  --color-pista: #dedcd5;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Curvas propias: las de CSS no rematan. Nunca ease-in en UI. */
+  --ease-salida: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  color-scheme: light;
+}
+
+body {
+  background: var(--color-fondo);
+  color: var(--color-tinta);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  /* Sin el flash azul al tocar en Android/iOS */
+  -webkit-tap-highlight-color: transparent;
+  /* En PWA instalada no hay barra de direcciones que rebote. */
+  overscroll-behavior-y: none;
+}
+
+/* Los importes en columna necesitan ancho fijo por dígito para alinearse. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * iOS hace zoom al enfocar un campo con letra menor a 16px y te deja la página
+ * corrida. Con 16px en celular no se dispara; de tablet para arriba volvemos a
+ * 14px, que es lo que pide el diseño.
+ */
+@media (max-width: 639px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Es una app de plata: el movimiento corto y nítido, nunca decorativo. */
+@keyframes aparecer {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.aparece {
+  animation: aparecer 200ms var(--ease-salida) both;
+}
+
+@keyframes entrar-panel {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+}
+
+.panel-entra {
+  animation: entrar-panel 220ms var(--ease-salida) both;
+}
+
+/* En touch el :hover se dispara al tocar y queda pegado. */
+@media (hover: hover) and (pointer: fine) {
+  .fila-hover:hover {
+    background: color-mix(in srgb, var(--color-fondo) 65%, transparent);
+  }
+}
+
+/* Scroll horizontal de tablas sin barra a la vista. */
+.scroll-x {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+/*
+ * Movimiento reducido no es cero movimiento: se van los desplazamientos y
+ * quedan los cambios de opacidad, que ayudan a entender que algo cambió.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
