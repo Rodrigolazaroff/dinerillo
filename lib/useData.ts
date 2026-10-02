@@ -3,7 +3,8 @@
 import useSWR from "swr";
 import type { ContratoCalculado, Resumen } from "./calc";
 import type {
-  Alquiler, Cobro, CondicionesDefault, Config, Contrato, Gasto, Propiedad, Rol,
+  Alquiler, Categoria, Cobro, CondicionesDefault, Config, Contrato, DivCierre, DivGasto, Gasto,
+  Ingreso, IngresoCobro, MiGasto, Propiedad, Rol,
 } from "./types";
 
 export interface DataResponse {
@@ -13,6 +14,12 @@ export interface DataResponse {
   cobros: Cobro[];
   gastos: Gasto[];
   config: Config;
+  ingresos: Ingreso[];
+  ingresoCobros: IngresoCobro[];
+  categorias: Categoria[];
+  misGastos: MiGasto[];
+  divGastos: DivGasto[];
+  divCierres: DivCierre[];
   condiciones: CondicionesDefault;
   calculados: ContratoCalculado[];
   resumen: Resumen;

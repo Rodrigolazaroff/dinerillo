@@ -113,15 +113,19 @@ export function Textarea({ className = "", ...props }: TextareaHTMLAttributes<HT
 }
 
 /** Input de plata: teclado numérico en el celular y alineado a la derecha. */
-export function InputPlata({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>) {
+export function InputPlata({
+  className = "",
+  simbolo = "$",
+  ...props
+}: InputHTMLAttributes<HTMLInputElement> & { simbolo?: string }) {
   return (
     <div className="relative">
-      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-tenue">$</span>
+      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-tenue">{simbolo}</span>
       <input
         type="text"
         inputMode="decimal"
         autoComplete="off"
-        className={`${inputBase} tabular pl-7 text-right ${className}`}
+        className={`${inputBase} tabular text-right ${simbolo.length > 1 ? "pl-11" : "pl-7"} ${className}`}
         {...props}
       />
     </div>
@@ -367,6 +371,36 @@ export function Cargando({ texto = "Cargando…" }: { texto?: string }) {
         <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />
       </svg>
       {texto}
+    </div>
+  );
+}
+
+/**
+ * El "+" de cargar, abajo a la derecha y arriba de la barra de pestañas: donde
+ * llega el pulgar. En escritorio no hace falta, el botón ya está arriba.
+ */
+export function BotonFlotante({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className="no-print fixed right-4 z-40 flex h-14 w-14 items-center justify-center rounded-2xl bg-acento text-white shadow-lg transition-transform duration-150 ease-[var(--ease-salida)] active:scale-[0.94] sm:hidden"
+      style={{ bottom: "calc(env(safe-area-inset-bottom) + 72px)" }}
+    >
+      <svg viewBox="0 0 20 20" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+        <path d="M10 4v12M4 10h12" strokeLinecap="round" />
+      </svg>
+    </button>
+  );
+}
+
+/** Barras horizontales por categoría: una lista que se lee, no un gráfico de torta. */
+export function BarraParte({ parte, total, color }: { parte: number; total: number; color: string }) {
+  const p = total > 0 ? Math.max(2, Math.min(100, (parte / total) * 100)) : 0;
+  return (
+    <div className="h-1.5 w-full overflow-hidden rounded-full bg-pista" role="presentation">
+      <div className="h-full rounded-full" style={{ width: `${p}%`, background: color }} />
     </div>
   );
 }

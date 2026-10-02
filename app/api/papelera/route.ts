@@ -15,7 +15,9 @@ export async function DELETE() {
   if (no) return no;
   const supabase = await supabaseServer();
   const orden = [
-    TABLAS.cobros, TABLAS.gastos, TABLAS.alquileres, TABLAS.contratos, TABLAS.propiedades,
+    TABLAS.cobros, TABLAS.boletas, TABLAS.alquileres, TABLAS.contratos, TABLAS.propiedades,
+    TABLAS.ingresoCobros, TABLAS.ingresos, TABLAS.misGastos, TABLAS.divGastos,
+    TABLAS.divCierres, TABLAS.categorias,
   ];
   let borrados = 0;
   for (const tabla of orden) {

@@ -110,3 +110,49 @@ export function IconoTacho({ className = "" }: Props) {
     </svg>
   );
 }
+
+export function IconoInicio({ className = "" }: Props) {
+  return (
+    <svg viewBox="0 0 24 24" className={`${base} ${className}`} fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+      <path d="M4 11.2 12 4.5l8 6.7" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M6 10.5V19.5h12v-9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function IconoIngresos({ className = "" }: Props) {
+  return (
+    <svg viewBox="0 0 24 24" className={`${base} ${className}`} fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+      <path d="M12 19V6M6.5 11.5 12 6l5.5 5.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5 20h14" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function IconoDivision({ className = "" }: Props) {
+  return (
+    <svg viewBox="0 0 24 24" className={`${base} ${className}`} fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+      <circle cx="8.5" cy="9" r="3" />
+      <circle cx="15.5" cy="9" r="3" />
+      <path d="M3.5 19c.6-2.8 2.6-4.5 5-4.5s4.4 1.7 5 4.5M13.6 15c.6-.3 1.2-.5 1.9-.5 2.4 0 4.4 1.7 5 4.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function IconoOjo({ abierto = true, className = "" }: Props & { abierto?: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" className={`h-5 w-5 ${className}`} fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" strokeLinejoin="round" />
+      <circle cx="12" cy="12" r="2.8" />
+      {!abierto && <path d="M4 20 20 4" strokeLinecap="round" />}
+    </svg>
+  );
+}
+
+export function IconoFlecha({ direccion = "derecha", className = "" }: Props & { direccion?: "izquierda" | "derecha" }) {
+  return (
+    <svg viewBox="0 0 20 20" className={`h-5 w-5 ${className}`} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <path d={direccion === "derecha" ? "M8 5l5 5-5 5" : "M12 5l-5 5 5 5"} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}

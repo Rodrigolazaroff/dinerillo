@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AjustesFinanzas } from "@/components/AjustesFinanzas";
 import { BotonInstalar } from "@/components/PWA";
 import { Shell } from "@/components/Shell";
 import { Aviso, Boton, Campo, Card, Cargando, Input, InputPct } from "@/components/ui";
@@ -24,8 +25,11 @@ export default function Ajustes() {
   const setCond = (c: CondicionesDefault) => setBorrador(c);
 
   const borrados = data
-    ? [...data.propiedades, ...data.contratos, ...data.cobros, ...data.gastos, ...data.alquileres]
-        .filter((x) => x.deleted_at).length
+    ? [
+        ...data.propiedades, ...data.contratos, ...data.cobros, ...data.gastos, ...data.alquileres,
+        ...data.ingresos, ...data.ingresoCobros, ...data.categorias, ...data.misGastos,
+        ...data.divGastos, ...data.divCierres,
+      ].filter((x) => x.deleted_at).length
     : 0;
 
   async function guardarCondiciones() {
@@ -95,8 +99,10 @@ export default function Ajustes() {
           </div>
         </Card>
 
+        <AjustesFinanzas config={data.config} categorias={data.categorias} recargar={recargar} />
+
         <Card
-          titulo="Con qué arranca un contrato nuevo"
+          titulo="Alquileres: con qué arranca un contrato nuevo"
           nota="Son sólo los valores que vienen precargados en el formulario. Cada contrato guarda los suyos, y cambiar esto no toca ningún contrato ya cargado."
         >
           <div className="grid grid-cols-2 gap-3 px-4 py-4 sm:px-5">

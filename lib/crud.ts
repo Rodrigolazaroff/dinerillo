@@ -13,12 +13,26 @@ import { supabaseServer } from "./supabase/server";
 //
 // - El `id` es un ULID hecho en el server. Es la clave para editar y borrar.
 // - Borrar es escribir `deleted_at`: la fila queda en la papelera y se puede
-//   recuperar hasta que la vacies.
+//   recuperar hasta que la vacies. Un PATCH con `restaurar: true` la devuelve:
+//   es lo que usa el "Deshacer" que aparece despues de borrar.
 //
 // El `user_id` no se manda nunca: lo pone la base con auth.uid(), y la
 // politica de RLS impide escribir una fila a nombre de otro.
 
 type Normalizador<T> = (v: T) => Record<string, unknown>;
+
+/**
+ * Los campos opcionales que en la base son null y en el formulario un texto
+ * vacio ("sin categoria", "todas las propiedades"). Asi la clave foranea no
+ * busca una fila con id "".
+ */
+export function vacioANulo<T extends Record<string, unknown>>(...campos: (keyof T)[]) {
+  return (v: T): Record<string, unknown> => {
+    const o: Record<string, unknown> = { ...v };
+    for (const c of campos) if (o[c as string] === "") o[c as string] = null;
+    return o;
+  };
+}
 
 export function endpoints<T extends z.ZodRawShape>(
   tabla: Tabla,
@@ -50,6 +64,9 @@ export function endpoints<T extends z.ZodRawShape>(
       const body = await req.json().catch(() => null);
       const id = String((body as { id?: string })?.id ?? "").trim();
       if (!id) return NextResponse.json({ error: "Falta el id" }, { status: 400 });
+      if ((body as { restaurar?: unknown }).restaurar === true) {
+        return actualizar(tabla, id, { deleted_at: null });
+      }
       const parsed = schema.partial().safeParse(body);
       if (!parsed.success) {
         return NextResponse.json({ error: primerError(parsed.error) }, { status: 400 });
@@ -101,5 +118,7 @@ export function falla(e: { code?: string; message: string }) {
     : e.code === "23505" ? "Ya existe un registro igual."
     : e.code === "42501" ? "No tenés permiso para hacer eso."
     : "No pude guardar. Probá de nuevo.";
-  return NextResponse.json({ error: msg }, { status: e.code === "42501" ? 403 : 500 });
+  // Un dato que la base no acepta es culpa del pedido (400), no del server.
+  const status = e.code === "42501" ? 403 : e.code?.startsWith("23") ? 400 : 500;
+  return NextResponse.json({ error: msg }, { status });
 }

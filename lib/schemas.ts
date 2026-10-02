@@ -132,3 +132,67 @@ export const CONDICIONES_FABRICA = {
 export function primerError(e: z.ZodError): string {
   return e.issues[0]?.message ?? "Revisá los datos";
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// Ingresos, gastos y división
+// ═══════════════════════════════════════════════════════════════════
+
+/** Las monedas que ofrece el formulario. La base acepta cualquier código ISO. */
+export const MONEDAS = ["ARS", "USD", "EUR", "BRL", "BGN"] as const;
+
+const moneda = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[A-Z]{3}$/, "La moneda va como código de tres letras, por ejemplo USD");
+
+export const ingresoSchema = z.object({
+  nombre: z.string().trim().min(1, "Ponele un nombre al ingreso").max(60),
+  moneda: moneda.default("ARS"),
+  nota: z.string().trim().max(500).default(""),
+  orden: numero("Orden", 0, 999).default(0),
+  // Archivar es esconder sin borrar: el historial sigue contando.
+  archivado_at: z.union([z.string().datetime(), z.literal(""), z.null()]).optional(),
+});
+
+export const ingresoCobroSchema = z.object({
+  ingreso_id: z.string().trim().min(1, "Elegí el ingreso"),
+  fecha: fecha,
+  periodo,
+  monto: numero("Importe", 0.01),
+  tipo_cambio: numero("Tipo de cambio", 0.0001).default(1),
+  nota: z.string().trim().max(500).default(""),
+});
+
+export const categoriaSchema = z.object({
+  nombre: z.string().trim().min(1, "Ponele un nombre a la categoría").max(40),
+  color: numero("Color", 1, 8).default(1),
+  orden: numero("Orden", 0, 999).default(0),
+});
+
+export const miGastoSchema = z.object({
+  fecha: fecha,
+  periodo,
+  descripcion: z.string().trim().min(1, "Contá en qué fue el gasto").max(80),
+  monto: numero("Importe", 0.01),
+  categoria_id: z.string().trim().default(""),
+  nota: z.string().trim().max(500).default(""),
+});
+
+export const divGastoSchema = miGastoSchema.extend({
+  pago: z.enum(["yo", "pareja"]).default("yo"),
+  mi_pct: numero("Tu parte", 0, 100).default(50),
+});
+
+export const divCierreSchema = z.object({
+  periodo,
+  monto: numero("Importe", 0),
+  fecha: fecha,
+  nota: z.string().trim().max(500).default(""),
+});
+
+export type IngresoInput = z.infer<typeof ingresoSchema>;
+export type IngresoCobroInput = z.infer<typeof ingresoCobroSchema>;
+export type CategoriaInput = z.infer<typeof categoriaSchema>;
+export type MiGastoInput = z.infer<typeof miGastoSchema>;
+export type DivGastoInput = z.infer<typeof divGastoSchema>;

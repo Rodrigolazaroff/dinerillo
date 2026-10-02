@@ -25,6 +25,7 @@ import {
   type TooltipContentProps,
 } from "recharts";
 import type { FilaPeriodo, Resumen } from "@/lib/calc";
+import type { MesSerie } from "@/lib/finanzas";
 import { ejeCorto, pct, periodoCorto, periodoLargo, plata, plataCorta } from "@/lib/format";
 import { Card, Segmentado } from "@/components/ui";
 
@@ -539,6 +540,78 @@ export function ComposicionDelIngreso({ resumen }: { resumen: Resumen }) {
               </li>
             ))}
           </ul>
+        </>
+      )}
+    </Card>
+  );
+}
+
+/* --------------------------------------------- 5. ingresos contra gastos --- */
+
+
+/** Barra con la punta de arriba redondeada, apoyada en el cero. */
+function formaArriba(p: BarShapeProps) {
+  return <path d={pathBarra(p.x, p.y, p.width, p.height, "arriba", 3)} fill={p.fill} />;
+}
+
+/**
+ * El año de un vistazo: lo que entró y lo que salió, mes a mes. Dos barras
+ * por mes, una al lado de la otra, y en el tooltip lo que quedó.
+ */
+export function IngresosVsGastos({ serie, actual }: { serie: MesSerie[]; actual: string }) {
+  const angosto = useAngosto();
+  const datos = angosto ? serie.slice(-6) : serie;
+  const hayAlgo = datos.some((m) => m.ingresos > 0 || m.gastos > 0);
+  const alto = angosto ? 200 : 260;
+
+  return (
+    <Card titulo="Entró y salió" nota={angosto ? "Los últimos 6 meses." : "Los últimos 12 meses."}>
+      {!hayAlgo ? (
+        <SinDatos alto={alto / 2}>
+          Cuando cargues ingresos y gastos, acá vas a ver mes a mes cuánto entró y cuánto salió.
+        </SinDatos>
+      ) : (
+        <>
+          <div className="px-1 pb-2 pt-4 sm:px-2">
+            <ResponsiveContainer width="100%" height={alto}>
+              <BarChart data={datos} margin={{ top: 4, right: 8, bottom: 0, left: 0 }} barGap={2} barCategoryGap="22%">
+                <CartesianGrid {...GRILLA} />
+                <XAxis
+                  dataKey="periodo"
+                  tickFormatter={periodoCorto}
+                  interval={intervaloTicks(datos.length, angosto ? 6 : 12)}
+                  tickMargin={8}
+                  {...EJE}
+                />
+                <YAxis tickFormatter={ejeCorto} width={46} tickMargin={4} {...EJE} />
+                <Tooltip
+                  cursor={{ fill: "var(--color-linea)" }}
+                  content={
+                    <Globo
+                      orden={["ingresos", "gastos"]}
+                      pie={(fila) => {
+                        const q = Number(fila.quedo) || 0;
+                        return (
+                          <p className="mt-1.5 border-t border-borde pt-1.5 text-[11px] text-suave">
+                            {q >= 0 ? `Te quedó ${plata(q)}` : `Gastaste ${plata(-q)} más de lo que entró`}
+                            {fila.periodo === actual ? " (mes en curso)" : ""}
+                          </p>
+                        );
+                      }}
+                    />
+                  }
+                />
+                <Bar dataKey="ingresos" name="Entró" fill="var(--color-serie-3)" shape={formaArriba} />
+                <Bar dataKey="gastos" name="Salió" fill="var(--color-serie-2)" shape={formaArriba} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <Leyenda
+            items={[
+              { clave: "ingresos", nombre: "Entró", color: "var(--color-serie-3)" },
+              { clave: "gastos", nombre: "Salió", color: "var(--color-serie-2)" },
+            ]}
+          />
         </>
       )}
     </Card>

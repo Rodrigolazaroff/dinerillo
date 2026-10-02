@@ -121,3 +121,87 @@ export interface CondicionesDefault {
   dia_vencimiento: number;
   prorrateo_pct: number;
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// Ingresos, gastos y división
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Una fuente de ingreso que creaste vos: "Sueldo", "Consultoría", lo que sea.
+ * Cobra siempre en la misma moneda. Alquileres no es una fila de acá: sale
+ * del módulo de alquileres y se muestra al lado.
+ */
+export interface Ingreso {
+  id: string;
+  nombre: string;
+  moneda: string;            // ISO 4217: ARS, USD, EUR
+  nota: string;
+  orden: number;
+  archivado_at: string;      // vacío = activa
+  created_at: string;
+  deleted_at: string;
+}
+
+/** Un cobro de una fuente. `tipo_cambio` = pesos por unidad, el día que entró. */
+export interface IngresoCobro {
+  id: string;
+  ingreso_id: string;
+  fecha: string;             // YYYY-MM-DD en que entró la plata
+  periodo: string;           // YYYY-MM al que corresponde
+  monto: number;             // en la moneda de la fuente
+  tipo_cambio: number;
+  nota: string;
+  created_at: string;
+  deleted_at: string;
+}
+
+/** Compartidas entre Gastos y División, así "Super" junta lo tuyo y tu parte. */
+export interface Categoria {
+  id: string;
+  nombre: string;
+  color: number;             // 1..8, el slot de --color-serie-N
+  orden: number;
+  created_at: string;
+  deleted_at: string;
+}
+
+/** Un gasto personal. Siempre en pesos. */
+export interface MiGasto {
+  id: string;
+  fecha: string;
+  periodo: string;
+  descripcion: string;
+  monto: number;
+  categoria_id: string;      // vacío = sin categoría
+  nota: string;
+  created_at: string;
+  deleted_at: string;
+}
+
+export type QuienPago = "yo" | "pareja";
+
+/** Un gasto compartido con la pareja: se carga una vez, con tu parte. */
+export interface DivGasto {
+  id: string;
+  fecha: string;
+  periodo: string;
+  descripcion: string;
+  monto: number;
+  pago: QuienPago;
+  mi_pct: number;            // 50 = la mitad es tuya
+  categoria_id: string;
+  nota: string;
+  created_at: string;
+  deleted_at: string;
+}
+
+/** El ajuste del mes ya transferido. No es ingreso ni gasto. */
+export interface DivCierre {
+  id: string;
+  periodo: string;
+  monto: number;
+  fecha: string;
+  nota: string;
+  created_at: string;
+  deleted_at: string;
+}

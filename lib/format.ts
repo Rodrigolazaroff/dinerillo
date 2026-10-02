@@ -117,3 +117,15 @@ export function redondear(n: number, decimales = 2): number {
   const f = 10 ** decimales;
   return Math.round((Number.isFinite(n) ? n : 0) * f) / f;
 }
+
+/** Símbolo para mostrar al lado de un monto. Si no lo conocemos, el código. */
+export function simboloMoneda(moneda: string): string {
+  return ({ ARS: "$", USD: "US$", EUR: "€", BRL: "R$", BGN: "лв" } as Record<string, string>)[moneda] ?? moneda;
+}
+
+/** Un monto en su moneda: "US$ 1.200", "€ 300,50". */
+export function enMoneda(monto: number, moneda: string): string {
+  if (moneda === "ARS") return plata(monto);
+  const entero = Number.isInteger(Math.round(monto * 100) / 100);
+  return `${simboloMoneda(moneda)} ${(entero ? nf0 : nf2).format(Math.abs(monto))}`;
+}

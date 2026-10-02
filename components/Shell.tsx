@@ -4,29 +4,42 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import {
-  IconoAjustes, IconoCobros, IconoContratos, IconoGastos, IconoResumen,
+  IconoAjustes, IconoDivision, IconoGastos, IconoIngresos, IconoInicio,
 } from "@/components/iconos";
-import { periodoLargo } from "@/lib/format";
-import { useData } from "@/lib/useData";
+import { BotonOjo } from "@/components/Privado";
+import { Toasts } from "@/components/Toast";
 
 // Esta app se usa desde el celular casi siempre, así que manda el layout mobile:
 // barra de pestañas abajo, donde llega el pulgar. En pantalla grande esa barra
 // desaparece y la navegación vuelve arriba, que es lo natural con mouse.
+//
+// Cuatro pestañas y no más: lo que se mira todos los días. Ajustes vive arriba,
+// y Alquileres adentro de Ingresos, que es lo que es.
 
 const LINKS = [
-  { href: "/", label: "Resumen", corto: "Resumen", Icono: IconoResumen },
-  { href: "/cobros", label: "Cobros", corto: "Cobros", Icono: IconoCobros },
-  { href: "/gastos", label: "Gastos", corto: "Gastos", Icono: IconoGastos },
-  { href: "/contratos", label: "Contratos", corto: "Contratos", Icono: IconoContratos },
-  { href: "/ajustes", label: "Ajustes", corto: "Ajustes", Icono: IconoAjustes },
+  { href: "/", label: "Inicio", Icono: IconoInicio },
+  { href: "/ingresos", label: "Ingresos", Icono: IconoIngresos },
+  { href: "/gastos", label: "Gastos", Icono: IconoGastos },
+  { href: "/division", label: "División", Icono: IconoDivision },
 ];
 
-const esActivo = (href: string, pathname: string) =>
-  href === "/" ? pathname === "/" : pathname.startsWith(href);
+const SUB_ALQUILERES = [
+  { href: "/alquileres", label: "Resumen" },
+  { href: "/alquileres/cobros", label: "Cobros" },
+  { href: "/alquileres/boletas", label: "Boletas" },
+  { href: "/alquileres/contratos", label: "Contratos" },
+];
+
+function esActivo(href: string, pathname: string) {
+  if (href === "/") return pathname === "/";
+  // Alquileres es un ingreso más: la pestaña que se prende es Ingresos.
+  if (href === "/ingresos" && pathname.startsWith("/alquileres")) return true;
+  return pathname.startsWith(href);
+}
 
 export function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { data } = useData();
+  const enAlquileres = pathname.startsWith("/alquileres");
 
   async function salir() {
     await fetch("/auth/salir", { method: "POST" });
@@ -36,29 +49,28 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col px-4 sm:px-6">
       <header
-        className="no-print sticky top-0 z-30 -mx-4 flex items-center justify-between gap-3 border-b border-borde bg-fondo/90 px-4 py-3 backdrop-blur-sm sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-5 sm:backdrop-blur-none"
-        style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+        className="no-print sticky top-0 z-30 -mx-4 flex items-center justify-between gap-3 border-b border-borde bg-fondo/90 px-4 py-2 backdrop-blur-sm sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-5 sm:backdrop-blur-none"
+        style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }}
       >
-        <div className="flex min-w-0 items-baseline gap-2.5">
-          <Link href="/" className="text-base font-semibold tracking-tight sm:text-lg">
-            Dinerillo
-          </Link>
-          {data?.resumen && (
-            <span className="truncate text-[11px] text-suave sm:text-xs">
-              {periodoLargo(data.resumen.periodoActual)}
-            </span>
-          )}
-        </div>
+        <Link href="/" className="text-base font-semibold tracking-tight sm:text-lg">
+          Dinerillo
+        </Link>
 
-        <div className="flex shrink-0 items-center gap-2 text-xs text-suave">
-          {data?.sesion?.rol === "lectura" && (
-            <span className="rounded bg-borde px-1.5 py-0.5 text-[10px] font-semibold text-suave">
-              solo lectura
-            </span>
-          )}
+        <div className="flex shrink-0 items-center gap-0.5 text-xs text-suave">
+          <BotonOjo />
+          <Link
+            href="/ajustes"
+            aria-label="Ajustes"
+            aria-current={pathname.startsWith("/ajustes") ? "page" : undefined}
+            className={`flex h-11 w-11 items-center justify-center rounded-lg transition-colors hover:bg-fondo hover:text-tinta sm:h-9 sm:w-9 ${
+              pathname.startsWith("/ajustes") ? "text-acento" : ""
+            }`}
+          >
+            <IconoAjustes className="h-5 w-5" />
+          </Link>
           <button
             onClick={salir}
-            className="-mr-2 flex h-11 items-center px-2 underline-offset-2 hover:underline"
+            className="hidden h-9 items-center px-2 underline-offset-2 hover:underline sm:flex"
           >
             salir
           </button>
@@ -66,7 +78,7 @@ export function Shell({ children }: { children: ReactNode }) {
       </header>
 
       {/* Navegación de escritorio */}
-      <nav className="no-print mb-6 hidden gap-1 sm:flex">
+      <nav className="no-print mb-6 hidden gap-1 sm:flex" aria-label="Navegación principal">
         {LINKS.map(({ href, label }) => (
           <Link
             key={href}
@@ -82,6 +94,35 @@ export function Shell({ children }: { children: ReactNode }) {
         ))}
       </nav>
 
+      {enAlquileres && (
+        <nav
+          className="no-print scroll-x -mx-4 mt-3 flex gap-1 overflow-x-auto px-4 sm:mx-0 sm:mt-0 sm:mb-4 sm:px-0"
+          aria-label="Alquileres"
+        >
+          <Link
+            href="/ingresos"
+            className="flex shrink-0 items-center rounded-lg px-2.5 py-1.5 text-xs text-tenue hover:text-tinta"
+          >
+            ‹ Ingresos
+          </Link>
+          {SUB_ALQUILERES.map(({ href, label }) => {
+            const activo = href === "/alquileres" ? pathname === href : pathname.startsWith(href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-current={activo ? "page" : undefined}
+                className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                  activo ? "bg-acento-claro text-acento" : "text-suave hover:text-tinta"
+                }`}
+              >
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
+      )}
+
       {/* El pb deja aire para que la barra de abajo no tape la última fila. */}
       <main className="flex-1 pt-4 pb-28 sm:pt-0 sm:pb-16">{children}</main>
 
@@ -91,8 +132,8 @@ export function Shell({ children }: { children: ReactNode }) {
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         aria-label="Navegación principal"
       >
-        <ul className="mx-auto grid max-w-lg grid-cols-5">
-          {LINKS.map(({ href, corto, label, Icono }) => {
+        <ul className="mx-auto grid max-w-lg grid-cols-4">
+          {LINKS.map(({ href, label, Icono }) => {
             const activo = esActivo(href, pathname);
             return (
               <li key={href}>
@@ -106,7 +147,7 @@ export function Shell({ children }: { children: ReactNode }) {
                 >
                   <Icono className={activo ? "scale-105" : ""} />
                   <span className={`text-[10px] leading-none ${activo ? "font-semibold" : ""}`}>
-                    {corto}
+                    {label}
                   </span>
                 </Link>
               </li>
@@ -114,6 +155,8 @@ export function Shell({ children }: { children: ReactNode }) {
           })}
         </ul>
       </nav>
+
+      <Toasts />
     </div>
   );
 }

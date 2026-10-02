@@ -166,8 +166,8 @@ function FormGastoAbierto({
       nota: b.nota.trim(),
     };
     const r = gasto
-      ? await enviar("/api/gastos", "PATCH", { ...cuerpo, id: gasto.id })
-      : await enviar("/api/gastos", "POST", cuerpo);
+      ? await enviar("/api/boletas", "PATCH", { ...cuerpo, id: gasto.id })
+      : await enviar("/api/boletas", "POST", cuerpo);
     setGuardando(false);
     if (!r.ok) {
       setError(r.error);

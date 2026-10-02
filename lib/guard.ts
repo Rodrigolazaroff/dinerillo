@@ -18,7 +18,8 @@ export async function sesionActual(): Promise<Sesion | null> {
   if (!u) return null;
   const meta = u.user_metadata ?? {};
   const nombre = String(meta.full_name ?? meta.name ?? "").trim().split(/\s+/)[0];
-  return { usuario: nombre || u.email || "vos", rol: "editor" };
+  const usuario = nombre || u.email || "vos";
+  return { usuario: usuario.charAt(0).toUpperCase() + usuario.slice(1), rol: "editor" };
 }
 
 /**

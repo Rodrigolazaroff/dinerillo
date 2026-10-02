@@ -43,6 +43,34 @@ la sesión y manda al login a quien no la tenga; los endpoints lo vuelven a cheq
 - Supabase → Authentication → URL Configuration: cada dominio donde corra la app tiene
   que estar en *Redirect URLs* (`https://dominio/**`).
 
+## Módulos y pantallas
+
+Cuatro pestañas abajo (en compu, arriba): **Inicio · Ingresos · Gastos · División**.
+Ajustes vive en el ícono de arriba, junto al ojito que oculta los montos.
+
+- **Inicio** (`/`): lo que te quedó en el mes, entró/salió, el ahorro real contra el
+  sugerido, atajos de carga, avisos accionables y el gráfico del año.
+- **Ingresos** (`/ingresos`, `/ingresos/[id]`): fuentes que crea el usuario (nada
+  precargado), cada una con su moneda y sus cobros. Alquileres aparece como un ingreso
+  más y abre su módulo. Arriba, chiquito, el ahorro sugerido (15% por defecto, editable).
+- **Alquileres** (`/alquileres/...`): Resumen, Cobros, Boletas, Contratos. Las rutas
+  viejas `/cobros` y `/contratos` redirigen.
+- **Gastos** (`/gastos`): los gastos personales + una línea "Gastos compartidos · mi
+  parte" que se calcula desde División (no se copia).
+- **División** (`/division`): gastos con la pareja, quién pagó y qué parte es tuya. El
+  saldo dice quién le pasa cuánto a quién; "Ya se transfirió" lo marca como saldado.
+
+Todas las cuentas del mes están en `lib/finanzas.ts`, puras como `calc.ts`, y se
+verifican en `npm test`. Reglas:
+
+- Todo se compara en pesos: un cobro en otra moneda guarda el tipo de cambio del día.
+- Ingreso de alquileres = lo cobrado menos el reintegro de boletas (eso es plata que vuelve).
+- Tu gasto de lo compartido es tu parte, la pague quien la pague.
+- La transferencia del ajuste con la pareja no es ingreso ni gasto.
+
+Borrar es blando y se puede deshacer desde el aviso de abajo (`PATCH` con
+`restaurar: true`).
+
 ## La decisión de diseño que importa
 
 **Las condiciones viven en el contrato, no en la app.**
@@ -104,6 +132,10 @@ prefijo `alq_`:
 - `alq_boletas` — `id, tipo, periodo, fecha, propiedad_id, monto, nota` (solo las que se reparten)
 - `ajustes` — `clave, valor` por usuario
 
+Del resto de los módulos: `ingresos`, `ingreso_cobros` (con `tipo_cambio`),
+`categorias` (compartidas entre Gastos y División, color = slot de la paleta),
+`gastos`, `div_gastos` (`pago`, `mi_pct`) y `div_cierres`.
+
 Todas llevan además `user_id, created_at, deleted_at`. Las claves foráneas incluyen
 `user_id`, así un contrato no puede colgar de una propiedad de otra cuenta.
 
@@ -112,8 +144,9 @@ Todas llevan además `user_id, created_at, deleted_at`. Las claves foráneas inc
 **Borrado = borrado blando.** Se escribe `deleted_at`. El borrado físico pasa sólo al
 vaciar la papelera desde Ajustes.
 
-La API sigue usando los nombres de antes (`/api/gastos`, `/api/alquileres`): el mapeo a
-tablas está en `TABLAS`, en `lib/repo.ts`.
+El mapeo de recurso de la API a tabla está en `TABLAS`, en `lib/repo.ts`. Ojo con dos
+nombres: `/api/boletas` son las boletas de alquileres y `/api/mis-gastos` los gastos
+personales; `/api/alquileres` son los importes fijados a mano.
 
 ## Colores de los gráficos
 

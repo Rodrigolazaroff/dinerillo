@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsc lib/calc.ts lib/format.ts lib/types.ts --outDir .test-build --module commonjs --target es2020 --moduleResolution node --skipLibCheck && node scripts/verificar-calculo.js"
+    "test": "tsc lib/calc.ts lib/finanzas.ts lib/format.ts lib/types.ts --outDir .test-build --module commonjs --target es2020 --moduleResolution node --skipLibCheck && node scripts/verificar-calculo.js && node scripts/verificar-finanzas.js"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

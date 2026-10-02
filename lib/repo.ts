@@ -1,5 +1,6 @@
 import type {
-  Alquiler, Cobro, CondicionesDefault, Config, Contrato, Gasto, Propiedad,
+  Alquiler, Categoria, Cobro, CondicionesDefault, Config, Contrato, DivCierre, DivGasto, Gasto,
+  Ingreso, IngresoCobro, MiGasto, Propiedad,
 } from "./types";
 import { CONDICIONES_FABRICA } from "./schemas";
 import { supabaseServer } from "./supabase/server";
@@ -14,7 +15,13 @@ export const TABLAS = {
   contratos: "alq_contratos",
   alquileres: "alq_fijados",
   cobros: "alq_cobros",
-  gastos: "alq_boletas",
+  boletas: "alq_boletas",
+  ingresos: "ingresos",
+  ingresoCobros: "ingreso_cobros",
+  categorias: "categorias",
+  misGastos: "gastos",
+  divGastos: "div_gastos",
+  divCierres: "div_cierres",
 } as const;
 
 export type Tabla = (typeof TABLAS)[keyof typeof TABLAS];
@@ -88,6 +95,56 @@ const unGasto = (f: Fila): Gasto => ({
   nota: txt(f.nota),
 });
 
+const unIngreso = (f: Fila): Ingreso => ({
+  ...base(f),
+  nombre: txt(f.nombre),
+  moneda: txt(f.moneda) || "ARS",
+  nota: txt(f.nota),
+  orden: num(f.orden),
+  archivado_at: txt(f.archivado_at),
+});
+
+const unIngresoCobro = (f: Fila): IngresoCobro => ({
+  ...base(f),
+  ingreso_id: txt(f.ingreso_id),
+  fecha: txt(f.fecha),
+  periodo: txt(f.periodo),
+  monto: num(f.monto),
+  tipo_cambio: num(f.tipo_cambio) || 1,
+  nota: txt(f.nota),
+});
+
+const unCategoria = (f: Fila): Categoria => ({
+  ...base(f),
+  nombre: txt(f.nombre),
+  color: num(f.color) || 1,
+  orden: num(f.orden),
+});
+
+const unMiGasto = (f: Fila): MiGasto => ({
+  ...base(f),
+  fecha: txt(f.fecha),
+  periodo: txt(f.periodo),
+  descripcion: txt(f.descripcion),
+  monto: num(f.monto),
+  categoria_id: txt(f.categoria_id),
+  nota: txt(f.nota),
+});
+
+const unDivGasto = (f: Fila): DivGasto => ({
+  ...unMiGasto(f),
+  pago: txt(f.pago) === "pareja" ? "pareja" : "yo",
+  mi_pct: num(f.mi_pct),
+});
+
+const unDivCierre = (f: Fila): DivCierre => ({
+  ...base(f),
+  periodo: txt(f.periodo),
+  monto: num(f.monto),
+  fecha: txt(f.fecha),
+  nota: txt(f.nota),
+});
+
 export interface Datos {
   propiedades: Propiedad[];
   contratos: Contrato[];
@@ -95,6 +152,12 @@ export interface Datos {
   cobros: Cobro[];
   gastos: Gasto[];
   config: Config;
+  ingresos: Ingreso[];
+  ingresoCobros: IngresoCobro[];
+  categorias: Categoria[];
+  misGastos: MiGasto[];
+  divGastos: DivGasto[];
+  divCierres: DivCierre[];
 }
 
 export async function leerTodo(): Promise<Datos> {
@@ -105,10 +168,17 @@ export async function leerTodo(): Promise<Datos> {
     return (data ?? []) as Fila[];
   };
 
-  const [props, contratos, fijados, cobros, boletas, ajustes] = await Promise.all([
+  const [
+    props, contratos, fijados, cobros, boletas, ajustes,
+    ingresos, ingresoCobros, categorias, misGastos, divGastos, divCierres,
+  ] = await Promise.all([
     leer(TABLAS.propiedades), leer(TABLAS.contratos), leer(TABLAS.alquileres),
-    leer(TABLAS.cobros), leer(TABLAS.gastos), leer("ajustes"),
+    leer(TABLAS.cobros), leer(TABLAS.boletas), leer("ajustes"),
+    leer(TABLAS.ingresos), leer(TABLAS.ingresoCobros), leer(TABLAS.categorias),
+    leer(TABLAS.misGastos), leer(TABLAS.divGastos), leer(TABLAS.divCierres),
   ]);
+  const porOrden = <T extends { orden: number; nombre: string }>(a: T, b: T) =>
+    a.orden - b.orden || a.nombre.localeCompare(b.nombre);
 
   const config: Config = {};
   for (const f of ajustes) config[txt(f.clave)] = txt(f.valor);
@@ -121,6 +191,12 @@ export async function leerTodo(): Promise<Datos> {
     cobros: cobros.map(unCobro),
     gastos: boletas.map(unGasto),
     config,
+    ingresos: ingresos.map(unIngreso).sort(porOrden),
+    ingresoCobros: ingresoCobros.map(unIngresoCobro),
+    categorias: categorias.map(unCategoria).sort(porOrden),
+    misGastos: misGastos.map(unMiGasto),
+    divGastos: divGastos.map(unDivGasto),
+    divCierres: divCierres.map(unDivCierre),
   };
 }
 
