@@ -197,7 +197,7 @@ export function BotonInstalar({ className = "" }: { className?: string }) {
         </ol>
         <p className="mt-2.5 text-[11px] leading-snug text-tenue">
           En iPhone esto sólo anda desde Safari. Si estás en Chrome no te va a aparecer la
-          opción: abrí rentifay en Safari y recién ahí seguí los pasos.
+          opción: abrí Dinerillo en Safari y recién ahí seguí los pasos.
         </p>
       </div>
     );
@@ -205,7 +205,7 @@ export function BotonInstalar({ className = "" }: { className?: string }) {
 
   return (
     <p className={`text-xs leading-relaxed text-tenue ${className}`}>
-      Desde este navegador no se puede instalar. Abrí Rentifay en el celular, con Chrome en
+      Desde este navegador no se puede instalar. Abrí Dinerillo en el celular, con Chrome en
       Android o Safari en iPhone, y ahí te va a aparecer la opción.
     </p>
   );

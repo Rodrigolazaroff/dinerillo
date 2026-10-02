@@ -3,13 +3,13 @@ import { RegistrarSW } from "@/components/PWA";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Rentifay",
-  description: "Control de alquileres: cobros, aumentos, servicios y rentabilidad.",
-  applicationName: "Rentifay",
+  title: "Dinerillo",
+  description: "Tu plata del mes: ingresos, gastos, alquileres y lo que dividís en pareja.",
+  applicationName: "Dinerillo",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "Rentifay",
+    title: "Dinerillo",
     statusBarStyle: "default",
   },
   formatDetection: { telephone: false },

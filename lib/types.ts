@@ -20,9 +20,6 @@ export type TipoGasto =
   | "luz"
   | "gas"
   | "abl"
-  | "mantenimiento"
-  | "reparacion"
-  | "seguro"
   | "otro";
 
 export interface Propiedad {
@@ -95,13 +92,11 @@ export interface Cobro {
 }
 
 /**
- * Una boleta o un gasto.
+ * Una boleta que se reparte entre los inquilinos.
  *
- * `reparte` marca la diferencia: el agua y el impuesto los pagas vos y te los
- * reintegran los inquilinos (reparte = true, se carga el total una sola vez y
- * cada contrato se lleva su prorrateo). Un arreglo de plomeria lo pagas vos y
- * nadie te lo devuelve (reparte = false): no entra en lo que cobras, sale de tu
- * rentabilidad.
+ * El agua y el impuesto los pagas vos y te los reintegran: se carga el total
+ * una sola vez y cada contrato se lleva su prorrateo. Los gastos que nadie
+ * reintegra (un arreglo, el seguro) no se cargan en este modulo.
  */
 export interface Gasto {
   id: string;
@@ -110,7 +105,6 @@ export interface Gasto {
   fecha: string;             // YYYY-MM-DD en que lo pagaste
   propiedad_id: string;      // vacio = la boleta cubre todas las propiedades
   monto: number;
-  reparte: boolean;
   nota: string;
   created_at: string;
   deleted_at: string;

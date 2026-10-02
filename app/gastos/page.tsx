@@ -30,7 +30,6 @@ const cuerpoDe = (g: Gasto) => ({
   fecha: g.fecha,
   propiedad_id: g.propiedad_id,
   monto: g.monto,
-  reparte: g.reparte,
   nota: g.nota,
 });
 
@@ -42,7 +41,6 @@ export default function GastosPage() {
   const hoyPeriodo = periodoActual();
   const anioHoy = Number(hoyPeriodo.slice(0, 4));
 
-  const [vista, setVista] = useState<"reintegran" | "propios">("reintegran");
   const [anio, setAnio] = useState(anioHoy);
 
   const [abierto, setAbierto] = useState(false);
@@ -72,18 +70,7 @@ export default function GastosPage() {
   const propiedades = data?.propiedades ?? [];
   const vigentes = (data?.calculados ?? []).filter((c) => c.vigente);
 
-  const reparten = useMemo(() => gastos.filter((g) => g.reparte), [gastos]);
-  const propios = useMemo(
-    () =>
-      gastos
-        .filter((g) => !g.reparte)
-        .sort((a, b) =>
-          b.periodo.localeCompare(a.periodo) ||
-          b.fecha.localeCompare(a.fecha) ||
-          b.created_at.localeCompare(a.created_at)
-        ),
-    [gastos]
-  );
+  const reparten = gastos;
 
   const nombrePropiedad = (id: string) =>
     propiedades.find((p) => p.id === id)?.nombre ?? "Propiedad borrada";
@@ -161,19 +148,6 @@ export default function GastosPage() {
   const sumaPct = redondear(vigentes.reduce((a, c) => a + c.contrato.prorrateo_pct, 0), 2);
   const restaPct = redondear(100 - sumaPct, 2);
 
-  const propiosDelAnio = propios.filter((g) => g.periodo.startsWith(`${anioHoy}-`));
-  const totalPropiosAnio = propiosDelAnio.reduce((a, g) => a + g.monto, 0);
-  const totalPropiosMes = propios
-    .filter((g) => g.periodo === hoyPeriodo)
-    .reduce((a, g) => a + g.monto, 0);
-
-  const masPesa = useMemo(() => {
-    const m = new Map<TipoGasto, number>();
-    for (const g of propiosDelAnio) m.set(g.tipo, (m.get(g.tipo) ?? 0) + g.monto);
-    const orden = [...m.entries()].sort((a, b) => b[1] - a[1]);
-    return orden[0] ?? null;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [propios, anioHoy]);
 
   function marcar(clave: string, estado: EstadoCelda | null) {
     setEstados((p) => {
@@ -230,7 +204,7 @@ export default function GastosPage() {
     marcar(clave, "guardando");
     const r = !actual
       ? await enviar("/api/gastos", "POST", {
-          tipo, periodo, fecha: "", propiedad_id: "", monto: nuevo, reparte: true, nota: "",
+          tipo, periodo, fecha: "", propiedad_id: "", monto: nuevo, nota: "",
         })
       : nuevo === null
         ? await enviar("/api/gastos", "DELETE", { id: actual.id })
@@ -303,23 +277,9 @@ export default function GastosPage() {
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-lg font-semibold tracking-tight">Gastos y servicios</h1>
-          {/*
-            Dos bloques, uno a la vez: son dos tareas distintas (cargar el mes
-            contra revisar lo propio) y apilarlas deja la grilla, el reparto y
-            una lista larga compitiendo en la misma pantalla de celular.
-          */}
-          <Segmentado
-            valor={vista}
-            opciones={[
-              { valor: "reintegran", label: "Te reintegran" },
-              { valor: "propios", label: "De tu bolsillo" },
-            ]}
-            onCambio={setVista}
-          />
         </div>
 
-        {vista === "reintegran" ? (
-          <div className="aparece flex flex-col gap-4">
+        <div className="aparece flex flex-col gap-4">
             <Card
               titulo="Servicios que te reintegran"
               nota="Cargá el total de cada boleta. Escribí el importe y salí del campo: se guarda solo."
@@ -520,86 +480,6 @@ export default function GastosPage() {
               </Card>
             )}
           </div>
-        ) : (
-          <div className="aparece flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              <Kpi
-                etiqueta={`Año ${anioHoy}`}
-                valor={plata(totalPropiosAnio)}
-                detalle={`${propiosDelAnio.length} ${propiosDelAnio.length === 1 ? "gasto" : "gastos"} que no te reintegran`}
-              />
-              <Kpi
-                etiqueta={periodoCorto(hoyPeriodo)}
-                valor={plata(totalPropiosMes)}
-                detalle="Este mes, de tu bolsillo"
-              />
-              <Kpi
-                etiqueta="Lo que más pesa"
-                valor={masPesa ? ETIQUETA_GASTO[masPesa[0]] : "—"}
-                detalle={
-                  masPesa
-                    ? `${plata(masPesa[1])} · ${comoPct(
-                        totalPropiosAnio > 0 ? (masPesa[1] / totalPropiosAnio) * 100 : 0
-                      )} del año`
-                    : "Todavía no hay gastos cargados"
-                }
-                className="col-span-2 sm:col-span-1"
-              />
-            </div>
-
-            <Card
-              titulo="Gastos que salen de tu bolsillo"
-              nota="Los pagás vos y nadie te los devuelve: bajan la rentabilidad."
-              accion={
-                puedeEditar && (
-                  <Boton onClick={abrirNuevo}>
-                    <IconoMas />
-                    Cargar gasto
-                  </Boton>
-                )
-              }
-            >
-              {errorLista && (
-                <div className="px-4 pt-3 sm:px-5">
-                  <Aviso tipo="error">{errorLista}</Aviso>
-                </div>
-              )}
-              {propios.length === 0 ? (
-                <Vacio
-                  titulo="Todavía no cargaste ningún gasto propio"
-                  accion={
-                    puedeEditar && (
-                      <Boton onClick={abrirNuevo}>
-                        <IconoMas />
-                        Cargar gasto
-                      </Boton>
-                    )
-                  }
-                >
-                  Acá van el arreglo del termotanque, el seguro o la pintura: lo que pagás vos y no
-                  se le cobra a nadie. Todo lo demás, la boleta del agua o el inmobiliario, va en
-                  &ldquo;Te reintegran&rdquo;.
-                </Vacio>
-              ) : (
-                <ul className="divide-y divide-linea">
-                  {propios.map((g) => (
-                    <FilaGasto
-                      key={g.id}
-                      g={g}
-                      propiedad={g.propiedad_id ? nombrePropiedad(g.propiedad_id) : "Todas las propiedades"}
-                      puedeEditar={puedeEditar}
-                      porBorrar={porBorrar === g.id}
-                      borrando={borrando === g.id}
-                      alEditar={() => abrirEdicion(g)}
-                      alPedirBorrar={() => pedirBorrar(g.id)}
-                      alBorrar={() => borrar(g.id)}
-                    />
-                  ))}
-                </ul>
-              )}
-            </Card>
-          </div>
-        )}
       </div>
 
       {abierto && (

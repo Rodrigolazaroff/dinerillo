@@ -70,11 +70,9 @@ export interface Resumen {
   deudaVencida: number;
   anio: {
     bruto: number; comision: number; neto: number; cobrado: number;
-    gastosPropios: number; resultado: number;
   };
   historico: { esperado: number; cobrado: number; comision: number };
   porPeriodo: FilaPeriodo[];
-  gastosPorTipo: { tipo: TipoGasto; monto: number }[];
   proximos: { cuota: Cuota; contrato: Contrato; propiedad: Propiedad | null }[];
   escalera: Record<string, number | string>[];
   seriesEscalera: string[];
@@ -107,7 +105,7 @@ function gastosDelPeriodo(
 ): ParteGasto[] {
   const porTipo = new Map<TipoGasto, { total: number; parte: number }>();
   for (const g of gastos) {
-    if (g.deleted_at || !g.reparte) continue;
+    if (g.deleted_at) continue;
     if (g.periodo !== periodo) continue;
     // Una boleta sin propiedad cubre todo (un medidor de agua para las dos
     // unidades, que es tu caso). Con propiedad, solo afecta a esa.
@@ -263,18 +261,6 @@ export function calcular(
   const delMes = todas.filter((q) => q.periodo === pActual);
   const delAnio = todas.filter((q) => q.periodo.startsWith(anio));
 
-  const gastosVivos = gastos.filter((g) => !g.deleted_at);
-  // Los que no se reparten los comes vos: no entran en lo que cobras, salen del
-  // resultado del año.
-  const propios = gastosVivos.filter((g) => !g.reparte);
-  const porTipo = new Map<TipoGasto, number>();
-  for (const g of propios) porTipo.set(g.tipo, redondear((porTipo.get(g.tipo) ?? 0) + g.monto));
-  const gastosPropiosAnio = redondear(
-    propios
-      .filter((g) => String(g.periodo || g.fecha).startsWith(anio))
-      .reduce((a, g) => a + g.monto, 0)
-  );
-
   const netoAnio = redondear(delAnio.reduce((a, q) => a + q.neto, 0));
   const cobradoAnio = redondear(delAnio.reduce((a, q) => a + q.cobrado, 0));
 
@@ -318,8 +304,6 @@ export function calcular(
         comision: redondear(delAnio.reduce((a, q) => a + q.comision, 0)),
         neto: netoAnio,
         cobrado: cobradoAnio,
-        gastosPropios: gastosPropiosAnio,
-        resultado: redondear(netoAnio - gastosPropiosAnio),
       },
       historico: {
         esperado: redondear(todas.reduce((a, q) => a + q.esperado, 0)),
@@ -327,9 +311,6 @@ export function calcular(
         comision: redondear(todas.reduce((a, q) => a + q.comision, 0)),
       },
       porPeriodo,
-      gastosPorTipo: [...porTipo.entries()]
-        .map(([tipo, monto]) => ({ tipo, monto }))
-        .sort((a, b) => b.monto - a.monto),
       proximos,
       escalera,
       seriesEscalera,

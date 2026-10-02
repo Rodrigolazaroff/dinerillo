@@ -43,10 +43,8 @@ const periodo = z
 
 export const TIPOS_PROPIEDAD = ["casa", "local", "departamento", "cochera", "otro"] as const;
 
-export const TIPOS_GASTO = [
-  "agua", "inmobiliario", "expensas", "luz", "gas", "abl",
-  "mantenimiento", "reparacion", "seguro", "otro",
-] as const;
+/** Boletas que se reparten entre los inquilinos. Los gastos que nadie reintegra no se cargan. */
+export const TIPOS_GASTO = ["agua", "inmobiliario", "expensas", "luz", "gas", "abl", "otro"] as const;
 
 /** Los que por defecto se reparten entre los inquilinos. */
 export const GASTOS_QUE_SE_REPARTEN = ["agua", "inmobiliario", "expensas", "abl"] as const;
@@ -102,7 +100,6 @@ export const gastoSchema = z.object({
   fecha: z.union([fecha, z.literal("")]).default(""),
   propiedad_id: z.string().trim().default(""),
   monto: numero("Importe", 0),
-  reparte: z.coerce.boolean().default(false),
   nota: z.string().trim().max(500).default(""),
 });
 

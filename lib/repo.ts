@@ -1,134 +1,92 @@
-import { batchGet, filasAObjetos, TABS, type TabName } from "./sheets";
 import type {
-  AjusteTipo, Alquiler, Cobro, CondicionesDefault, Config, Contrato, Gasto, Propiedad,
-  TipoGasto, TipoPropiedad,
+  Alquiler, Cobro, CondicionesDefault, Config, Contrato, Gasto, Propiedad,
 } from "./types";
-import { CONDICIONES_FABRICA, TIPOS_GASTO, TIPOS_PROPIEDAD } from "./schemas";
+import { CONDICIONES_FABRICA } from "./schemas";
+import { supabaseServer } from "./supabase/server";
 
-// La planilla devuelve todo como texto. Aca se convierte una sola vez a tipos
-// de verdad, asi ninguna pantalla tiene que andar haciendo Number(...) suelto.
+// Las tablas viven en Supabase con tipos de verdad (numeric, date). Aca se
+// pasan a la forma que espera el resto de la app, que es la misma que tenia
+// con la Sheet: asi lib/calc.ts y las pantallas no se enteran del cambio.
+
+/** Que tabla de la base corresponde a cada recurso de la API. */
+export const TABLAS = {
+  propiedades: "alq_propiedades",
+  contratos: "alq_contratos",
+  alquileres: "alq_fijados",
+  cobros: "alq_cobros",
+  gastos: "alq_boletas",
+} as const;
+
+export type Tabla = (typeof TABLAS)[keyof typeof TABLAS];
+
+type Fila = Record<string, unknown>;
 
 const num = (v: unknown): number => {
-  if (typeof v === "number") return Number.isFinite(v) ? v : 0;
-  const s = String(v ?? "").trim().replace(/\s/g, "");
-  if (!s) return 0;
-  // Aceptamos "1.234,56" y "1234.56": si hay coma, manda como decimal.
-  const limpio = s.includes(",") ? s.replace(/\./g, "").replace(",", ".") : s;
-  const n = Number(limpio.replace(/[^0-9.-]/g, ""));
+  const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
+const txt = (v: unknown): string => (v === null || v === undefined ? "" : String(v));
 
-const txt = (v: unknown): string => String(v ?? "").trim();
-
-const bool = (v: unknown): boolean => /^(s[ií]|true|verdadero|1|x)$/i.test(txt(v));
-
-/** Los booleanos se guardan como "si"/"no": la planilla se lee mejor a ojo. */
-export const guardarBool = (b: boolean) => (b ? "si" : "no");
-
-/** Una fecha de Google puede venir como serial. La normalizamos a YYYY-MM-DD. */
-const fechaISO = (v: unknown): string => {
-  const s = txt(v);
-  if (!s) return "";
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-  // Serial de Sheets: dias desde 1899-12-30.
-  if (/^\d+(\.\d+)?$/.test(s)) {
-    const ms = Date.UTC(1899, 11, 30) + Number(s) * 86_400_000;
-    return new Date(ms).toISOString().slice(0, 10);
-  }
-  const m = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
-  if (m) {
-    const [, d, mm, y] = m;
-    const yyyy = y.length === 2 ? `20${y}` : y;
-    return `${yyyy}-${mm.padStart(2, "0")}-${d.padStart(2, "0")}`;
-  }
-  return s;
-};
-
-const periodoISO = (v: unknown): string => {
-  const s = txt(v);
-  if (/^\d{4}-\d{2}$/.test(s)) return s;
-  const iso = fechaISO(s);
-  return /^\d{4}-\d{2}/.test(iso) ? iso.slice(0, 7) : s;
-};
-
-function unProp(o: Record<string, string>): Propiedad {
-  const tipo = txt(o.tipo).toLowerCase() as TipoPropiedad;
-  return {
-    id: txt(o.id),
-    nombre: txt(o.nombre),
-    direccion: txt(o.direccion),
-    tipo: (TIPOS_PROPIEDAD as readonly string[]).includes(tipo) ? tipo : "otro",
-    nota: txt(o.nota),
-    orden: num(o.orden),
-    created_at: txt(o.created_at),
-    deleted_at: txt(o.deleted_at),
-  };
+function base(f: Fila) {
+  return { id: txt(f.id), created_at: txt(f.created_at), deleted_at: txt(f.deleted_at) };
 }
 
-function unContrato(o: Record<string, string>): Contrato {
-  return {
-    id: txt(o.id),
-    propiedad_id: txt(o.propiedad_id),
-    inquilino: txt(o.inquilino),
-    telefono: txt(o.telefono),
-    email: txt(o.email),
-    fecha_inicio: fechaISO(o.fecha_inicio),
-    meses: num(o.meses) || 12,
-    ajuste_tipo: (txt(o.ajuste_tipo).toLowerCase() === "ninguno" ? "ninguno" : "porcentaje") as AjusteTipo,
-    alquiler_inicial: num(o.alquiler_inicial),
-    aumento_pct: num(o.aumento_pct),
-    aumento_meses: num(o.aumento_meses) || 1,
-    comision_pct: num(o.comision_pct),
-    mora_pct_diario: num(o.mora_pct_diario),
-    dia_vencimiento: num(o.dia_vencimiento) || 10,
-    prorrateo_pct: num(o.prorrateo_pct),
-    deposito: num(o.deposito),
-    nota: txt(o.nota),
-    created_at: txt(o.created_at),
-    deleted_at: txt(o.deleted_at),
-  };
-}
+const unProp = (f: Fila): Propiedad => ({
+  ...base(f),
+  nombre: txt(f.nombre),
+  direccion: txt(f.direccion),
+  tipo: txt(f.tipo) as Propiedad["tipo"],
+  nota: txt(f.nota),
+  orden: num(f.orden),
+});
 
-function unAlquiler(o: Record<string, string>): Alquiler {
-  return {
-    id: txt(o.id),
-    contrato_id: txt(o.contrato_id),
-    periodo: periodoISO(o.periodo),
-    monto: num(o.monto),
-    nota: txt(o.nota),
-    created_at: txt(o.created_at),
-    deleted_at: txt(o.deleted_at),
-  };
-}
+const unContrato = (f: Fila): Contrato => ({
+  ...base(f),
+  propiedad_id: txt(f.propiedad_id),
+  inquilino: txt(f.inquilino),
+  telefono: txt(f.telefono),
+  email: txt(f.email),
+  fecha_inicio: txt(f.fecha_inicio),
+  meses: num(f.meses),
+  ajuste_tipo: txt(f.ajuste_tipo) as Contrato["ajuste_tipo"],
+  alquiler_inicial: num(f.alquiler_inicial),
+  aumento_pct: num(f.aumento_pct),
+  aumento_meses: num(f.aumento_meses),
+  comision_pct: num(f.comision_pct),
+  mora_pct_diario: num(f.mora_pct_diario),
+  dia_vencimiento: num(f.dia_vencimiento),
+  prorrateo_pct: num(f.prorrateo_pct),
+  deposito: num(f.deposito),
+  nota: txt(f.nota),
+});
 
-function unCobro(o: Record<string, string>): Cobro {
-  return {
-    id: txt(o.id),
-    contrato_id: txt(o.contrato_id),
-    periodo: periodoISO(o.periodo),
-    fecha_cobro: fechaISO(o.fecha_cobro),
-    importe: num(o.importe),
-    nota: txt(o.nota),
-    created_at: txt(o.created_at),
-    deleted_at: txt(o.deleted_at),
-  };
-}
+const unAlquiler = (f: Fila): Alquiler => ({
+  ...base(f),
+  contrato_id: txt(f.contrato_id),
+  periodo: txt(f.periodo),
+  monto: num(f.monto),
+  nota: txt(f.nota),
+});
 
-function unGasto(o: Record<string, string>): Gasto {
-  const tipo = txt(o.tipo).toLowerCase() as TipoGasto;
-  return {
-    id: txt(o.id),
-    tipo: (TIPOS_GASTO as readonly string[]).includes(tipo) ? tipo : "otro",
-    periodo: periodoISO(o.periodo),
-    fecha: fechaISO(o.fecha),
-    propiedad_id: txt(o.propiedad_id),
-    monto: num(o.monto),
-    reparte: bool(o.reparte),
-    nota: txt(o.nota),
-    created_at: txt(o.created_at),
-    deleted_at: txt(o.deleted_at),
-  };
-}
+const unCobro = (f: Fila): Cobro => ({
+  ...base(f),
+  contrato_id: txt(f.contrato_id),
+  periodo: txt(f.periodo),
+  fecha_cobro: txt(f.fecha_cobro),
+  importe: num(f.importe),
+  nota: txt(f.nota),
+});
+
+/** Toda boleta de la tabla se reparte: los gastos que nadie reintegra no se cargan. */
+const unGasto = (f: Fila): Gasto => ({
+  ...base(f),
+  tipo: txt(f.tipo) as Gasto["tipo"],
+  periodo: txt(f.periodo),
+  fecha: txt(f.fecha),
+  propiedad_id: txt(f.propiedad_id),
+  monto: num(f.monto),
+  nota: txt(f.nota),
+});
 
 export interface Datos {
   propiedades: Propiedad[];
@@ -140,25 +98,31 @@ export interface Datos {
 }
 
 export async function leerTodo(): Promise<Datos> {
-  const tabs: TabName[] = [
-    TABS.propiedades, TABS.contratos, TABS.alquileres, TABS.cobros, TABS.gastos, TABS.config,
-  ];
-  const raw = await batchGet(tabs);
-  const cfg: Config = {};
-  for (const f of filasAObjetos(raw[TABS.config] ?? [])) {
-    if (f.clave) cfg[f.clave] = txt(f.valor);
-  }
+  const supabase = await supabaseServer();
+  const leer = async (tabla: string) => {
+    const { data, error } = await supabase.from(tabla).select("*");
+    if (error) throw new Error(`No pude leer ${tabla}: ${error.message}`);
+    return (data ?? []) as Fila[];
+  };
+
+  const [props, contratos, fijados, cobros, boletas, ajustes] = await Promise.all([
+    leer(TABLAS.propiedades), leer(TABLAS.contratos), leer(TABLAS.alquileres),
+    leer(TABLAS.cobros), leer(TABLAS.gastos), leer("ajustes"),
+  ]);
+
+  const config: Config = {};
+  for (const f of ajustes) config[txt(f.clave)] = txt(f.valor);
+
   return {
-    propiedades: filasAObjetos(raw[TABS.propiedades] ?? []).map(unProp)
+    propiedades: props.map(unProp)
       .sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre)),
-    contratos: filasAObjetos(raw[TABS.contratos] ?? []).map(unContrato),
-    alquileres: filasAObjetos(raw[TABS.alquileres] ?? []).map(unAlquiler),
-    cobros: filasAObjetos(raw[TABS.cobros] ?? []).map(unCobro),
-    gastos: filasAObjetos(raw[TABS.gastos] ?? []).map(unGasto),
-    config: cfg,
+    contratos: contratos.map(unContrato),
+    alquileres: fijados.map(unAlquiler),
+    cobros: cobros.map(unCobro),
+    gastos: boletas.map(unGasto),
+    config,
   };
 }
-
 
 export { CONDICIONES_FABRICA };
 

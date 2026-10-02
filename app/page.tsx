@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import {
-  CobradoVsEsperado, ComposicionDelIngreso, EscaleraDeAlquileres, GastosPorCategoria,
+  CobradoVsEsperado, ComposicionDelIngreso, EscaleraDeAlquileres,
 } from "@/components/Graficos";
 import { Shell } from "@/components/Shell";
 import { IconoAlerta, IconoCheck, IconoMas, IconoReloj } from "@/components/iconos";
@@ -108,7 +108,7 @@ export default function Resumen() {
           </Link>
         )}
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           <Kpi
             etiqueta="Neto del año"
             valor={plataCorta(resumen.anio.neto)}
@@ -120,15 +120,10 @@ export default function Resumen() {
             detalle="lo que se lleva la inmobiliaria"
           />
           <Kpi
-            etiqueta="Gastos tuyos"
-            valor={plataCorta(resumen.anio.gastosPropios)}
-            detalle="los que nadie te reintegra"
-          />
-          <Kpi
-            etiqueta="Resultado del año"
-            valor={plataCorta(resumen.anio.resultado)}
-            detalle="neto menos gastos tuyos"
-            tono={resumen.anio.resultado >= 0 ? "ok" : "peligro"}
+            etiqueta="Cobrado en el año"
+            valor={plataCorta(resumen.anio.cobrado)}
+            detalle="lo que ya entró, con reintegros y mora"
+            className="col-span-2 sm:col-span-1"
           />
         </div>
 
@@ -163,7 +158,6 @@ export default function Resumen() {
         <CobradoVsEsperado resumen={resumen} meses={12} />
         <EscaleraDeAlquileres resumen={resumen} />
         <ComposicionDelIngreso resumen={resumen} />
-        <GastosPorCategoria resumen={resumen} />
       </div>
     </Shell>
   );

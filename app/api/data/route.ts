@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * Un solo endpoint de lectura: devuelve las filas crudas y todo lo calculado.
- * Es una sola llamada a Sheets por refresco, que es lo que tarda.
+ * Las seis tablas se piden en paralelo; RLS hace que cada uno vea solo lo suyo.
  */
 export async function GET() {
   const sesion = await sesionActual();
@@ -30,15 +30,12 @@ export async function GET() {
         resumen,
         sesion,
         hoy,
-        // Para el link "abrir la planilla" de Ajustes. No es un secreto: la
-        // planilla igual pide estar logueado con la cuenta de Google.
-        sheetId: process.env.SHEET_ID ?? "",
       },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "No pude leer la planilla";
-    console.error("[rentifay/data]", msg);
+    const msg = e instanceof Error ? e.message : "No pude leer los datos";
+    console.error("[dinerillo/data]", msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { BotonInstalar } from "@/components/PWA";
 import { Shell } from "@/components/Shell";
@@ -11,7 +10,6 @@ import { enviar, useData } from "@/lib/useData";
 
 export default function Ajustes() {
   const { data, error, cargando, recargar, puedeEditar } = useData();
-  const router = useRouter();
 
   // Lo que se muestra sale de la planilla; el borrador solo existe mientras
   // estas editando. Espejar la respuesta de SWR en estado te borraria lo que
@@ -66,8 +64,9 @@ export default function Ajustes() {
   }
 
   async function salir() {
-    await fetch("/api/login", { method: "DELETE" });
-    router.push("/login");
+    await fetch("/auth/salir", { method: "POST" });
+    // Recarga completa: que no quede nada de la sesion anterior en memoria.
+    window.location.href = "/login";
   }
 
   if (error) {
@@ -181,22 +180,11 @@ export default function Ajustes() {
           )}
         </Card>
 
-        <Card titulo="Los datos" nota="Viven en una planilla de Google que es tuya. La app sólo la lee y le escribe.">
+        <Card titulo="Los datos" nota="Viven en tu cuenta y solo los ves vos.">
           <div className="flex flex-col gap-3 px-4 py-4 sm:px-5">
-            {data.sheetId && (
-              <a
-                href={`https://docs.google.com/spreadsheets/d/${data.sheetId}/edit`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs font-medium text-acento underline-offset-2 hover:underline"
-              >
-                Abrir la planilla en Google Sheets
-              </a>
-            )}
             <p className="text-[11px] leading-relaxed text-tenue">
-              Nada de la app depende de fórmulas en la planilla: ahí sólo hay filas planas. Los
-              aumentos, la comisión, el reparto de servicios y la mora se calculan acá cada vez.
-              Podés abrirla para mirar o para corregir a mano sin romper nada.
+              Se guardan filas planas: los aumentos, la comisión, el reparto de servicios y la mora
+              se calculan acá cada vez, así que corregir un dato nunca rompe una cuenta.
             </p>
           </div>
         </Card>
@@ -204,7 +192,7 @@ export default function Ajustes() {
         {puedeEditar && (
           <Card
             titulo="Papelera"
-            nota="Lo que borrás queda marcado pero no se va, por si te arrepentís. Vaciarla lo saca de la planilla para siempre."
+            nota="Lo que borrás queda marcado pero no se va, por si te arrepentís. Vaciarla lo borra para siempre."
           >
             <div className="flex items-center justify-between gap-3 px-4 py-4 sm:px-5">
               <p className="text-xs text-suave">
@@ -235,7 +223,6 @@ export default function Ajustes() {
           <div className="flex items-center justify-between gap-3 px-4 py-4 sm:px-5">
             <p className="text-xs text-suave">
               Entraste como <span className="font-medium text-tinta">{data.sesion.usuario}</span>
-              {data.sesion.rol === "lectura" && " (solo lectura)"}
             </p>
             <Boton variante="secundario" tamano="sm" onClick={salir}>
               Cerrar sesión

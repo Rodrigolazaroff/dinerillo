@@ -1,12 +1,13 @@
 import { endpoints } from "@/lib/crud";
-import { guardarBool } from "@/lib/repo";
+import { TABLAS } from "@/lib/repo";
 import { gastoSchema } from "@/lib/schemas";
-import { TABS } from "@/lib/sheets";
 
-// `reparte` se guarda como "si"/"no" para que la planilla se lea a ojo.
-const h = endpoints(TABS.gastos, gastoSchema, (v) => ({
+// Las boletas que se reparten. En la base, "todas las propiedades" y "sin
+// fecha" son null, no un texto vacio: asi la clave foranea no se queja.
+const h = endpoints(TABLAS.gastos, gastoSchema, (v) => ({
   ...v,
-  reparte: v.reparte === undefined ? undefined : guardarBool(Boolean(v.reparte)),
+  fecha: v.fecha === undefined ? undefined : v.fecha || null,
+  propiedad_id: v.propiedad_id === undefined ? undefined : v.propiedad_id || null,
 }));
 
 export const POST = h.POST;

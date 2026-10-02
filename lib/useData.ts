@@ -18,7 +18,6 @@ export interface DataResponse {
   resumen: Resumen;
   sesion: { usuario: string; rol: Rol };
   hoy: string;
-  sheetId: string;
 }
 
 async function fetcher(url: string): Promise<DataResponse> {

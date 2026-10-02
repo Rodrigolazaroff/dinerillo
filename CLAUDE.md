@@ -1,12 +1,13 @@
-# Rentifay
+# Dinerillo
 
-Control de alquileres. Cobros, aumentos, servicios que se reparten entre inquilinos y
-rentabilidad real, sin abrir la planilla nunca.
+La plata del mes en un solo lugar. Hoy tiene el módulo de **alquileres** (cobros,
+aumentos, boletas que se reparten entre inquilinos). Vienen **ingresos**, **gastos** y
+**división** de gastos con la pareja. Antes se llamaba Rentifay y vivía en una Google Sheet.
 
 ## Stack
 
-Next.js 16 (App Router) · TypeScript · Tailwind v4 · Recharts · SWR · Zod · googleapis.
-PWA instalable. Deploy en Vercel, datos en una Google Sheet.
+Next.js 16 (App Router) · TypeScript · Tailwind v4 · Recharts · SWR · Zod · Supabase
+(`@supabase/ssr`). PWA instalable. Deploy en Vercel, datos y login en Supabase.
 
 ## Cómo se levanta
 
@@ -16,27 +17,31 @@ cp .env.example .env.local   # y completar
 npm run dev
 ```
 
-Para preparar la Sheet la primera vez (o después de agregar una columna):
-
-```bash
-npm run bootstrap
-```
-
-Es idempotente: crea las pestañas que falten, escribe los headers y **nunca toca datos
-ya cargados**. Si una pestaña ya tiene filas y le falta una columna, la agrega al final
-en vez de reescribir el header.
+El schema vive en `supabase/migrations/`, en orden. Se aplica desde el SQL Editor del
+proyecto (o con la CLI de Supabase): cada archivo una sola vez.
 
 ## Variables de entorno
 
 | Variable | Para qué |
 |---|---|
-| `GOOGLE_SA_EMAIL` | Mail del service account con acceso de editor a la Sheet |
-| `GOOGLE_SA_PRIVATE_KEY` | Su clave privada, en una línea con los `\n` escapados |
-| `SHEET_ID` | ID de la Sheet que oficia de base de datos |
-| `AUTH_SECRET` | Firma de la cookie de sesión (string largo y random) |
-| `AUTH_PASS_RODRIGO` | Clave de acceso con rol editor |
-| `AUTH_PASS_INVITADO` | Opcional. Clave de solo lectura; si no está, ese usuario no existe |
-| `SHARE_WITH` | Sólo para el bootstrap, si algún día crea la planilla desde cero |
+| `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto de Supabase |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Clave pública. Va al navegador por diseño: lo que protege los datos es RLS |
+| `GOOGLE_SA_EMAIL`, `GOOGLE_SA_PRIVATE_KEY`, `SHEET_ID` | Solo para `scripts/exportar-sheet.mjs` mientras dure la migración. Después se borran |
+
+No hay clave de servicio en la app: todo se lee y se escribe como el usuario logueado.
+
+## Login y usuarios
+
+Entrar con Google o con mail y contraseña (con "Crear cuenta" en la misma pantalla).
+Cada cuenta ve **solo lo suyo**: todas las tablas tienen `user_id` (lo pone la base con
+`auth.uid()`) y una política RLS `user_id = auth.uid()`. El proxy (`proxy.ts`) refresca
+la sesión y manda al login a quien no la tenga; los endpoints lo vuelven a chequear.
+
+- Google: proyecto de Google Cloud `dinerillo`, cliente OAuth "Dinerillo web". La
+  pantalla de consentimiento está en **Prueba**: solo entran con Google los mails de la
+  lista de usuarios de prueba. El resto puede crear cuenta con mail.
+- Supabase → Authentication → URL Configuration: cada dominio donde corra la app tiene
+  que estar en *Redirect URLs* (`https://dominio/**`).
 
 ## La decisión de diseño que importa
 
@@ -45,11 +50,11 @@ en vez de reescribir el header.
 Hoy los contratos son 15% cada 3 meses, comisión 7%, 12 meses, mora 2% diario y vencen
 el 10. Pero eso es lo que se pactó *esta vez*. Cada fila de `contratos` guarda sus
 propios `aumento_pct`, `aumento_meses`, `meses`, `comision_pct`, `mora_pct_diario`,
-`dia_vencimiento` y `prorrateo_pct`. La pestaña `config` sólo guarda con qué valores
+`dia_vencimiento` y `prorrateo_pct`. La tabla `ajustes` sólo guarda con qué valores
 viene **precargado el formulario**; cambiarla no toca ningún contrato ya cargado.
 
 Y por si la fórmula no alcanza: **cualquier mes puede llevar un importe fijado a mano**
-(pestaña `alquileres`). Le gana a la proyección. Con eso entra un contrato atado al ICL,
+(tabla `alq_fijados`). Le gana a la proyección. Con eso entra un contrato atado al ICL,
 uno con montos negociados mes a mes o uno donde el aumento salió distinto a lo pactado,
 sin tocar una línea de código.
 
@@ -78,35 +83,37 @@ que ves es la que podés reclamar hoy y no la de la semana pasada.
 ## Los servicios que se reparten
 
 El agua y el impuesto inmobiliario los paga el dueño y los inquilinos le reintegran su
-parte junto con el alquiler. En la pestaña `gastos` eso es `reparte = si`: **se carga el
-total de la boleta una sola vez** y cada contrato se lleva su `prorrateo_pct`.
+parte junto con el alquiler. **Se carga el total de la boleta una sola vez** (tabla
+`alq_boletas`) y cada contrato se lleva su `prorrateo_pct`.
 
 Con dos inquilinos al 50% el total queda cubierto. Si los porcentajes de los contratos
 vigentes no suman 100, la app avisa: la diferencia la está poniendo el dueño.
 
-Un gasto con `reparte = no` (mantenimiento, seguro, una reparación) no entra en lo que se
-cobra: sale del resultado del año.
+Los gastos que nadie reintegra (un arreglo, el seguro) **no se cargan en este módulo**:
+se decidió sacarlos. Si hace falta registrarlos, van a los gastos personales.
 
-## La Sheet
+## La base
 
-Seis pestañas planas, sin fórmulas ni formato. Fila 1 = headers.
+Proyecto de Supabase `dinerillo` (São Paulo). Tablas del módulo de alquileres, con
+prefijo `alq_`:
 
-- `propiedades` — `id, nombre, direccion, tipo, nota, orden, created_at, deleted_at`
-- `contratos` — `id, propiedad_id, inquilino, telefono, email, fecha_inicio, meses, ajuste_tipo, alquiler_inicial, aumento_pct, aumento_meses, comision_pct, mora_pct_diario, dia_vencimiento, prorrateo_pct, deposito, nota, created_at, deleted_at`
-- `alquileres` — `id, contrato_id, periodo, monto, nota, created_at, deleted_at` (importes fijados a mano)
-- `cobros` — `id, contrato_id, periodo, fecha_cobro, importe, nota, created_at, deleted_at`
-- `gastos` — `id, tipo, periodo, fecha, propiedad_id, monto, reparte, nota, created_at, deleted_at`
-- `config` — `clave, valor`
+- `alq_propiedades` — `id, nombre, direccion, tipo, nota, orden`
+- `alq_contratos` — `id, propiedad_id, inquilino, telefono, email, fecha_inicio, meses, ajuste_tipo, alquiler_inicial, aumento_pct, aumento_meses, comision_pct, mora_pct_diario, dia_vencimiento, prorrateo_pct, deposito, nota`
+- `alq_fijados` — `id, contrato_id, periodo, monto, nota` (importes fijados a mano)
+- `alq_cobros` — `id, contrato_id, periodo, fecha_cobro, importe, nota`
+- `alq_boletas` — `id, tipo, periodo, fecha, propiedad_id, monto, nota` (solo las que se reparten)
+- `ajustes` — `clave, valor` por usuario
 
-`id` es un ULID generado en el server: **es la clave para editar y borrar**, nunca se
-depende del número de fila.
+Todas llevan además `user_id, created_at, deleted_at`. Las claves foráneas incluyen
+`user_id`, así un contrato no puede colgar de una propiedad de otra cuenta.
 
-**Borrado = borrado blando.** Se escribe `deleted_at` y la fila no se mueve, así dos
-escrituras a la vez no se pisan. El borrado físico pasa sólo al vaciar la papelera desde
-Ajustes.
+`id` es un ULID generado en el server: **es la clave para editar y borrar**.
 
-Las escrituras mapean **por nombre de columna**, no por posición: si abrís la planilla y
-movés una columna de lugar, los datos siguen cayendo donde corresponde.
+**Borrado = borrado blando.** Se escribe `deleted_at`. El borrado físico pasa sólo al
+vaciar la papelera desde Ajustes.
+
+La API sigue usando los nombres de antes (`/api/gastos`, `/api/alquileres`): el mapeo a
+tablas está en `TABLAS`, en `lib/repo.ts`.
 
 ## Colores de los gráficos
 

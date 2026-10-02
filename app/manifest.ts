@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Rentifay",
-    short_name: "Rentifay",
-    description: "Control de alquileres: cobros, aumentos, gastos y rentabilidad.",
+    name: "Dinerillo",
+    short_name: "Dinerillo",
+    description: "Tu plata del mes: ingresos, gastos, alquileres y lo que dividís en pareja.",
     start_url: "/",
     scope: "/",
     display: "standalone",

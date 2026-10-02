@@ -1,26 +1,28 @@
 import { NextResponse } from "next/server";
+import { falla } from "@/lib/crud";
 import { exigirEditor } from "@/lib/guard";
-import { leerTodo } from "@/lib/repo";
-import { deleteRowsByIds, TABS } from "@/lib/sheets";
+import { TABLAS } from "@/lib/repo";
+import { supabaseServer } from "@/lib/supabase/server";
 
 /**
  * Vacia la papelera: borrado fisico de todo lo que tenga `deleted_at`.
- * Es la unica operacion que saca filas de la planilla.
+ * Es la unica operacion que saca filas de la base. Va de las hojas a la raiz
+ * (cobros antes que contratos, contratos antes que propiedades) para que
+ * ninguna clave foranea quede apuntando a algo que ya no existe.
  */
 export async function DELETE() {
   const no = await exigirEditor();
   if (no) return no;
-  try {
-    const d = await leerTodo();
-    const borrados =
-      (await deleteRowsByIds(TABS.cobros, d.cobros.filter((x) => x.deleted_at).map((x) => x.id))) +
-      (await deleteRowsByIds(TABS.gastos, d.gastos.filter((x) => x.deleted_at).map((x) => x.id))) +
-      (await deleteRowsByIds(TABS.alquileres, d.alquileres.filter((x) => x.deleted_at).map((x) => x.id))) +
-      (await deleteRowsByIds(TABS.contratos, d.contratos.filter((x) => x.deleted_at).map((x) => x.id))) +
-      (await deleteRowsByIds(TABS.propiedades, d.propiedades.filter((x) => x.deleted_at).map((x) => x.id)));
-    return NextResponse.json({ ok: true, borrados });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "No pude vaciar la papelera";
-    return NextResponse.json({ error: msg }, { status: 500 });
+  const supabase = await supabaseServer();
+  const orden = [
+    TABLAS.cobros, TABLAS.gastos, TABLAS.alquileres, TABLAS.contratos, TABLAS.propiedades,
+  ];
+  let borrados = 0;
+  for (const tabla of orden) {
+    const { data, error } = await supabase
+      .from(tabla).delete().not("deleted_at", "is", null).select("id");
+    if (error) return falla(error);
+    borrados += data?.length ?? 0;
   }
+  return NextResponse.json({ ok: true, borrados });
 }

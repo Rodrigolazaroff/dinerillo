@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import {
   IconoAjustes, IconoCobros, IconoContratos, IconoGastos, IconoResumen,
@@ -26,12 +26,11 @@ const esActivo = (href: string, pathname: string) =>
 
 export function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
   const { data } = useData();
 
   async function salir() {
-    await fetch("/api/login", { method: "DELETE" });
-    router.push("/login");
+    await fetch("/auth/salir", { method: "POST" });
+    window.location.href = "/login";
   }
 
   return (
@@ -42,7 +41,7 @@ export function Shell({ children }: { children: ReactNode }) {
       >
         <div className="flex min-w-0 items-baseline gap-2.5">
           <Link href="/" className="text-base font-semibold tracking-tight sm:text-lg">
-            Rentifay
+            Dinerillo
           </Link>
           {data?.resumen && (
             <span className="truncate text-[11px] text-suave sm:text-xs">

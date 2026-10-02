@@ -1,11 +1,11 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import {
   Aviso, Boton, Campo, Input, InputPlata, Panel, Select, Textarea,
 } from "@/components/ui";
 import { pct, periodoActual, plata, redondear } from "@/lib/format";
-import { GASTOS_QUE_SE_REPARTEN, TIPOS_GASTO } from "@/lib/schemas";
+import { TIPOS_GASTO } from "@/lib/schemas";
 import type { Gasto, Propiedad, TipoGasto } from "@/lib/types";
 import { enviar, useData } from "@/lib/useData";
 
@@ -18,18 +18,8 @@ export const ETIQUETA_GASTO: Record<TipoGasto, string> = {
   luz: "Luz",
   gas: "Gas",
   abl: "ABL",
-  mantenimiento: "Mantenimiento",
-  reparacion: "Reparación",
-  seguro: "Seguro",
   otro: "Otro",
 };
-
-const SE_REPARTEN = new Set<string>(GASTOS_QUE_SE_REPARTEN);
-
-/** Los que por defecto te reintegran: agua, inmobiliario, expensas, ABL. */
-export function seRepartePorDefecto(tipo: TipoGasto): boolean {
-  return SE_REPARTEN.has(tipo);
-}
 
 // El importe se escribe y se lee igual en el formulario y en la grilla de
 // meses, así que las dos conversiones viven acá y las importa la pantalla. No
@@ -66,21 +56,7 @@ export function aNumero(crudo: string): number {
 /** "50" -> "50%", "33.5" -> "33,5%" */
 const comoPct = (n: number) => pct(n / 100, Number.isInteger(n) ? 0 : 1);
 
-const OPCIONES_REPARTE = [
-  {
-    valor: true,
-    label: "Me lo reintegran",
-    ayuda: "Cargás el total de la boleta y cada inquilino paga su parte.",
-  },
-  {
-    valor: false,
-    label: "Lo pago yo",
-    ayuda: "Nadie te lo devuelve: sale de tu rentabilidad.",
-  },
-] as const;
-
 interface Borrador {
-  reparte: boolean;
   tipo: TipoGasto;
   periodo: string;
   monto: string;
@@ -94,12 +70,11 @@ function borradorDe(g?: Gasto): Borrador {
     // El caso de todos los meses es la boleta del agua, así que el formulario
     // abre ahí y no en el gasto más raro.
     return {
-      reparte: true, tipo: "agua", periodo: periodoActual(),
+      tipo: "agua", periodo: periodoActual(),
       monto: "", propiedad_id: "", fecha: "", nota: "",
     };
   }
   return {
-    reparte: g.reparte,
     tipo: g.tipo,
     periodo: g.periodo,
     monto: aCampo(g.monto),
@@ -146,33 +121,19 @@ function FormGastoAbierto({
   const [b, setB] = useState<Borrador>(() => borradorDe(gasto));
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
-  const tocoReparte = useRef(false);
 
 
   const set = <K extends keyof Borrador>(k: K, v: Borrador[K]) =>
     setB((p) => ({ ...p, [k]: v }));
 
   function cambiarTipo(tipo: TipoGasto) {
-    setB((p) => ({
-      ...p,
-      tipo,
-      // En un gasto nuevo el tipo arrastra el reparte, salvo que ya lo hayas
-      // elegido a mano: ahí manda tu decisión.
-      reparte: gasto || tocoReparte.current ? p.reparte : seRepartePorDefecto(tipo),
-    }));
-  }
-
-  function elegirReparte(valor: boolean) {
-    tocoReparte.current = true;
-    set("reparte", valor);
+    set("tipo", tipo);
   }
 
   const vigentes = (data?.calculados ?? []).filter((c) => c.vigente);
   const monto = aNumero(b.monto);
 
-  const hintImporte = !b.reparte
-    ? "El total que pagaste vos. No se le cobra a nadie."
-    : vigentes.length === 0
+  const hintImporte = vigentes.length === 0
       ? "Cargá el total de la boleta. No hay contratos vigentes: por ahora la estás poniendo entera."
       : `Cargá el total de la boleta. Cada inquilino paga su parte: ${vigentes
           .map((c) => {
@@ -202,7 +163,6 @@ function FormGastoAbierto({
       fecha: b.fecha,
       propiedad_id: b.propiedad_id,
       monto: redondear(monto, 2),
-      reparte: b.reparte,
       nota: b.nota.trim(),
     };
     const r = gasto
@@ -238,40 +198,6 @@ function FormGastoAbierto({
       }
     >
       <form id={ID_FORM} onSubmit={guardar} className="flex flex-col gap-4">
-        {/*
-          Quién pone la plata es la decisión que cambia todo lo demás, así que va
-          primera y con la explicación de cada opción a la vista. Por eso no usa
-          el `Segmentado` común, que sólo muestra la etiqueta.
-        */}
-        <fieldset>
-          <legend className="mb-1 text-xs font-medium text-suave">Esta boleta…</legend>
-          <div className="grid grid-cols-2 gap-1 rounded-xl border border-borde bg-papel p-1">
-            {OPCIONES_REPARTE.map((o) => {
-              const activo = b.reparte === o.valor;
-              return (
-                <label
-                  key={String(o.valor)}
-                  className={`flex min-h-[44px] cursor-pointer flex-col justify-center gap-0.5 rounded-lg px-3 py-2 transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-acento ${
-                    activo ? "bg-acento text-white" : "text-tinta hover:bg-fondo"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="reparte"
-                    className="sr-only"
-                    checked={activo}
-                    onChange={() => elegirReparte(o.valor)}
-                  />
-                  <span className="text-xs font-semibold">{o.label}</span>
-                  <span className={`text-[11px] leading-snug ${activo ? "text-white/85" : "text-tenue"}`}>
-                    {o.ayuda}
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        </fieldset>
-
         <Campo label="Tipo">
           <Select
             value={b.tipo}

@@ -1,11 +1,15 @@
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { COOKIE, leerSesion } from "@/lib/auth";
 
-// El login y las piezas de la PWA (manifest, service worker, iconos) tienen que
-// poder bajarse sin sesion: si no, el celular no puede instalar la app.
+// Corre antes de cada pedido: refresca la sesion de Supabase (rota el token y
+// reescribe la cookie) y manda al login a quien no la tenga.
+//
+// El login, la vuelta de Google y las piezas de la PWA (manifest, service
+// worker, iconos) tienen que poder bajarse sin sesion: si no, el celular no
+// puede instalar la app.
 const PUBLICAS = [
   "/login",
-  "/api/login",
+  "/auth/",
   "/manifest.webmanifest",
   "/sw.js",
   "/offline",
@@ -13,11 +17,28 @@ const PUBLICAS = [
 ];
 
 export default async function proxy(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-  if (PUBLICAS.some((p) => pathname.startsWith(p))) return NextResponse.next();
+  let res = NextResponse.next({ request: req });
 
-  const sesion = await leerSesion(req.cookies.get(COOKIE)?.value);
-  if (sesion) return NextResponse.next();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    {
+      cookies: {
+        getAll: () => req.cookies.getAll(),
+        setAll: (lista) => {
+          for (const { name, value } of lista) req.cookies.set(name, value);
+          res = NextResponse.next({ request: req });
+          for (const { name, value, options } of lista) res.cookies.set(name, value, options);
+        },
+      },
+    }
+  );
+
+  // getUser valida el token contra Supabase; getSession solo leeria la cookie.
+  const { data } = await supabase.auth.getUser();
+  const { pathname } = req.nextUrl;
+
+  if (data.user || PUBLICAS.some((p) => pathname.startsWith(p))) return res;
 
   if (pathname.startsWith("/api/")) {
     return NextResponse.json({ error: "Sesión vencida. Volvé a entrar." }, { status: 401 });

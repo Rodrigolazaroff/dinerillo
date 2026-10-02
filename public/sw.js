@@ -1,5 +1,5 @@
 /*
- * Service worker de Rentifay. A mano y corto a propósito.
+ * Service worker de Dinerillo. A mano y corto a propósito.
  *
  * Por qué network-first y no cache-first: esto es una app de plata. Un importe
  * viejo servido desde el cache es peor que un error, porque el error se ve y se
@@ -9,7 +9,7 @@
  * navegador. Nada de datos se guarda acá.
  */
 
-const CACHE = "rentifay-v1";
+const CACHE = "dinerillo-v1";
 
 // El shell mínimo: la pantalla de offline y los iconos que la acompañan.
 const SHELL = [

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Sin conexión · Rentifay",
+  title: "Sin conexión · Dinerillo",
 };
 
 /*
@@ -37,7 +37,7 @@ export default function Offline() {
         <h1 className="mt-4 text-base font-semibold tracking-tight text-tinta">Sin conexión</h1>
 
         <p className="mt-2 text-sm leading-relaxed text-suave">
-          Los datos de Rentifay viven en una planilla de Google, así que sin red no hay nada
+          Tus datos viven en la nube, así que sin red no hay nada
           para mostrar. Fijate el wifi o los datos del celular y probá de nuevo.
         </p>
 

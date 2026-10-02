@@ -1,8 +1,8 @@
 import { endpoints } from "@/lib/crud";
 import { contratoSchema } from "@/lib/schemas";
-import { TABS } from "@/lib/sheets";
+import { TABLAS } from "@/lib/repo";
 
-const h = endpoints(TABS.contratos, contratoSchema);
+const h = endpoints(TABLAS.contratos, contratoSchema);
 export const POST = h.POST;
 export const PATCH = h.PATCH;
 export const DELETE = h.DELETE;
