@@ -65,7 +65,20 @@ interface Borrador {
   nota: string;
 }
 
-function borradorDe(g?: Gasto): Borrador {
+/** Lo que puede venir precargado de la carga asistida. */
+export type InicialBoleta = Partial<Pick<Gasto, "tipo" | "periodo" | "monto" | "fecha" | "nota">>;
+
+function borradorDe(g?: Gasto, inicial?: InicialBoleta): Borrador {
+  if (!g && inicial) {
+    return {
+      tipo: inicial.tipo ?? "agua",
+      periodo: inicial.periodo ?? periodoActual(),
+      monto: inicial.monto ? aCampo(inicial.monto) : "",
+      propiedad_id: "",
+      fecha: inicial.fecha ?? "",
+      nota: inicial.nota ?? "",
+    };
+  }
   if (!g) {
     // El caso de todos los meses es la boleta del agua, así que el formulario
     // abre ahí y no en el gasto más raro.
@@ -97,6 +110,8 @@ export function FormGasto(props: {
   abierto: boolean;
   cerrar: () => void;
   gasto?: Gasto;
+  inicial?: InicialBoleta;
+  aviso?: string;
   propiedades: Propiedad[];
   alDeGuardar: () => void;
 }) {
@@ -108,17 +123,21 @@ function FormGastoAbierto({
   abierto,
   cerrar,
   gasto,
+  inicial,
+  aviso,
   propiedades,
   alDeGuardar,
 }: {
   abierto: boolean;
   cerrar: () => void;
   gasto?: Gasto;
+  inicial?: InicialBoleta;
+  aviso?: string;
   propiedades: Propiedad[];
   alDeGuardar: () => void;
 }) {
   const { data } = useData();
-  const [b, setB] = useState<Borrador>(() => borradorDe(gasto));
+  const [b, setB] = useState<Borrador>(() => borradorDe(gasto, inicial));
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
 
@@ -198,6 +217,7 @@ function FormGastoAbierto({
       }
     >
       <form id={ID_FORM} onSubmit={guardar} className="flex flex-col gap-4">
+        {aviso && <Aviso tipo="info">Revisá: {aviso}</Aviso>}
         <Campo label="Tipo">
           <Select
             value={b.tipo}

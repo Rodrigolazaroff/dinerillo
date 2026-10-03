@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Asistente } from "@/components/Asistente";
 import { PuntoCategoria } from "@/components/Categorias";
 import { FormMovimiento } from "@/components/FormMovimiento";
 import { IconoCheck, IconoMas } from "@/components/iconos";
@@ -12,6 +13,7 @@ import { Aviso, Boton, BotonFlotante, Card, Cargando, Fila, Input, Vacio } from 
 import { fechaCorta, fechaDia, hoyISO, periodoLargo } from "@/lib/format";
 import type { DivGasto } from "@/lib/types";
 import { enviar } from "@/lib/useData";
+import { compartirPdf, fraseDelAjuste, pdfDivision } from "@/lib/pdfDivision";
 import { useFinanzas } from "@/lib/useFinanzas";
 import { usarParametro } from "@/lib/useMes";
 
@@ -26,6 +28,7 @@ export default function Division() {
   const [editando, setEditando] = useState<DivGasto | null>(null);
   const [nombre, setNombre] = useState("");
   const [ocupado, setOcupado] = useState(false);
+  const [armandoPdf, setArmandoPdf] = useState(false);
 
   const gastos = useMemo(
     () =>
@@ -87,6 +90,31 @@ export default function Division() {
     if (!r.ok) return avisar(r.error);
     await recargar();
     avisar("El mes volvió a quedar abierto");
+  }
+
+  async function compartir() {
+    if (!data) return;
+    setArmandoPdf(true);
+    try {
+      const blob = await pdfDivision({
+        mes,
+        yo: data.sesion.usuario,
+        pareja: Pareja,
+        gastos,
+        categorias: data.categorias,
+        division: d,
+      });
+      const r = await compartirPdf(
+        blob,
+        `Division-${mes}.pdf`,
+        `${periodoLargo(mes)}: ${fraseDelAjuste(d, data.sesion.usuario, Pareja)}`
+      );
+      if (r === "descargado") avisar("PDF descargado");
+    } catch {
+      avisar("No pude armar el PDF. Probá de nuevo.");
+    } finally {
+      setArmandoPdf(false);
+    }
   }
 
   const porDia = new Map<string, DivGasto[]>();
@@ -175,8 +203,17 @@ export default function Division() {
           )}
         </section>
 
+        <Asistente modo="compartido" className="[&>*]:flex-1 sm:[&>*]:flex-none" />
+
         {d.cantidad > 0 && (
-          <Card titulo="El mes">
+          <Card
+            titulo="El mes"
+            accion={
+              <Boton variante="secundario" tamano="sm" onClick={compartir} disabled={armandoPdf}>
+                {armandoPdf ? "Armando…" : "Compartir PDF"}
+              </Boton>
+            }
+          >
             <div className="px-4 py-2 sm:px-5">
               <Fila label="Gastaron entre los dos" valor={<Monto valor={d.total} />} fuerte />
               <Fila label="Pagaste vos" valor={<Monto valor={d.pagueYo} />} />

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { Asistente } from "@/components/Asistente";
 import { colorCategoria, PuntoCategoria } from "@/components/Categorias";
 import { FormMovimiento } from "@/components/FormMovimiento";
 import { IconoDivision, IconoFlecha, IconoMas } from "@/components/iconos";
@@ -77,6 +78,7 @@ export default function Gastos() {
               {delta > 0 ? "▲" : "▼"} <Monto valor={Math.abs(delta)} /> contra {periodoLargo(anterior.periodo)}
             </p>
           )}
+          <Asistente modo="gasto" className="mt-4 [&>*]:flex-1 sm:[&>*]:flex-none" />
           {/* En el celular está el "+" flotante; acá solo en pantalla grande. */}
           <div className="mt-4 hidden sm:block">
             <Boton onClick={() => setNuevo(true)}>

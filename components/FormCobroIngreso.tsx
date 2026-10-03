@@ -22,6 +22,8 @@ export function FormCobroIngreso({
   cerrar,
   ingreso,
   cobro,
+  inicial,
+  aviso,
   ultimoTipoCambio,
   mes,
   recargar,
@@ -30,20 +32,25 @@ export function FormCobroIngreso({
   cerrar: () => void;
   ingreso: Ingreso;
   cobro?: IngresoCobro;
+  /** Precarga de un cobro nuevo (la carga asistida). */
+  inicial?: Partial<Pick<IngresoCobro, "monto" | "fecha" | "periodo" | "nota">>;
+  aviso?: string;
   ultimoTipoCambio: number | null;
   mes: string;
   recargar: () => Promise<unknown>;
 }) {
   const enPesos = ingreso.moneda === "ARS";
-  const [monto, setMonto] = useState(cobro ? aCampo(cobro.monto) : "");
-  const [fecha, setFecha] = useState(
-    cobro?.fecha ?? (mes === periodoActual() ? hoyISO() : `${mes}-01`)
+  const [monto, setMonto] = useState(
+    cobro ? aCampo(cobro.monto) : inicial?.monto ? aCampo(inicial.monto) : ""
   );
-  const [periodo, setPeriodo] = useState(cobro?.periodo ?? mes);
+  const [fecha, setFecha] = useState(
+    cobro?.fecha ?? inicial?.fecha ?? (mes === periodoActual() ? hoyISO() : `${mes}-01`)
+  );
+  const [periodo, setPeriodo] = useState(cobro?.periodo ?? inicial?.periodo ?? mes);
   const [tc, setTc] = useState(
     cobro && !enPesos ? aCampo(cobro.tipo_cambio) : ultimoTipoCambio ? aCampo(ultimoTipoCambio) : ""
   );
-  const [nota, setNota] = useState(cobro?.nota ?? "");
+  const [nota, setNota] = useState(cobro?.nota ?? inicial?.nota ?? "");
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
 
@@ -121,6 +128,7 @@ export function FormCobroIngreso({
       }
     >
       <form id={ID_FORM} onSubmit={guardar} className="flex flex-col gap-4">
+        {aviso && <Aviso tipo="info">Revisá: {aviso}</Aviso>}
         <Campo label={`Importe en ${ingreso.moneda}`}>
           <InputPlata
             simbolo={simboloMoneda(ingreso.moneda)}

@@ -26,6 +26,7 @@ proyecto (o con la CLI de Supabase): cada archivo una sola vez.
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto de Supabase |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Clave pública. Va al navegador por diseño: lo que protege los datos es RLS |
+| `ANTHROPIC_API_KEY` | Secreta. Para la carga asistida (`/api/ia`). Solo en el server |
 | `GOOGLE_SA_EMAIL`, `GOOGLE_SA_PRIVATE_KEY`, `SHEET_ID` | Solo para `scripts/exportar-sheet.mjs` mientras dure la migración. Después se borran |
 
 No hay clave de servicio en la app: todo se lee y se escribe como el usuario logueado.
@@ -70,6 +71,22 @@ verifican en `npm test`. Reglas:
 
 Borrar es blando y se puede deshacer desde el aviso de abajo (`PATCH` con
 `restaurar: true`).
+
+## Carga asistida (dictado y facturas)
+
+Botones "Dictar" y "Factura" en Inicio, Gastos, División y Boletas
+(`components/Asistente.tsx`). El texto dictado (Web Speech API del navegador, gratis) o
+el PDF/foto van a `/api/ia`, que llama a Claude (`claude-haiku-4-5`, tope de 800 tokens
+de salida, timeout 25 s con un reintento) y devuelve los datos interpretados. **Nunca
+guarda:** abre el formulario precargado para revisar. El archivo no se guarda en ningún
+lado. Las fotos se achican a 1600 px en el navegador antes de mandarlas. La pantalla corta
+a los 35 s y vuelve a habilitar los botones. Necesita `ANTHROPIC_API_KEY` en Vercel.
+
+## PDF de División
+
+"Compartir PDF" en División arma el detalle del mes con jsPDF (cargado recién al tocar el
+botón, `lib/pdfDivision.ts`) y abre la hoja de compartir del celular (WhatsApp); en la
+compu lo descarga. Mismo formato que el viejo Divisor de Gastos.
 
 ## La decisión de diseño que importa
 

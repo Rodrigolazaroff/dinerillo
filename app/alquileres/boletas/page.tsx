@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Asistente } from "@/components/Asistente";
 import { ETIQUETA_GASTO, FormGasto, aCampo, aNumero } from "@/components/FormGasto";
 import { IconoLapiz, IconoMas, IconoTacho } from "@/components/iconos";
 import { Shell } from "@/components/Shell";
@@ -277,6 +278,8 @@ export default function GastosPage() {
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-lg font-semibold tracking-tight">Boletas</h1>
+          {/* Subir la boleta del agua o del inmobiliario y que se cargue sola. */}
+          <Asistente modo="boleta" />
         </div>
 
         <div className="aparece flex flex-col gap-4">

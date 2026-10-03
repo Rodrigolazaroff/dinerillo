@@ -39,6 +39,8 @@ export function FormMovimiento({
   abierto,
   cerrar,
   gasto,
+  inicial,
+  aviso,
   mes,
   categorias,
   pareja,
@@ -49,6 +51,10 @@ export function FormMovimiento({
   abierto: boolean;
   cerrar: () => void;
   gasto?: MiGasto | DivGasto;
+  /** Precarga de un gasto nuevo (la carga asistida). */
+  inicial?: Partial<Pick<DivGasto, "monto" | "descripcion" | "categoria_id" | "fecha" | "pago" | "mi_pct" | "nota">>;
+  /** Algo para revisar antes de guardar, arriba de todo. */
+  aviso?: string;
   mes: string;
   categorias: Categoria[];
   pareja: string;
@@ -59,20 +65,23 @@ export function FormMovimiento({
   const div = gasto as DivGasto | undefined;
   const nombrePareja = pareja || "Tu pareja";
 
-  const [monto, setMonto] = useState(gasto ? aCampo(gasto.monto) : "");
-  const [descripcion, setDescripcion] = useState(gasto?.descripcion ?? "");
+  const [monto, setMonto] = useState(
+    gasto ? aCampo(gasto.monto) : inicial?.monto ? aCampo(inicial.monto) : ""
+  );
+  const [descripcion, setDescripcion] = useState(gasto?.descripcion ?? inicial?.descripcion ?? "");
   const [categoria, setCategoria] = useState(() => {
     if (gasto) return gasto.categoria_id;
+    if (inicial?.categoria_id) return inicial.categoria_id;
     const u = ultimaCategoria();
     return categorias.some((c) => c.id === u && !c.deleted_at) ? u : "";
   });
   const [fecha, setFecha] = useState(
-    gasto?.fecha ?? (mes === periodoActual() ? hoyISO() : `${mes}-01`)
+    gasto?.fecha ?? inicial?.fecha ?? (mes === periodoActual() ? hoyISO() : `${mes}-01`)
   );
-  const [pago, setPago] = useState<QuienPago>(div?.pago ?? "yo");
-  const [miPct, setMiPct] = useState(String(div?.mi_pct ?? miPctDefault));
-  const [nota, setNota] = useState(gasto?.nota ?? "");
-  const [conNota, setConNota] = useState(Boolean(gasto?.nota));
+  const [pago, setPago] = useState<QuienPago>(div?.pago ?? inicial?.pago ?? "yo");
+  const [miPct, setMiPct] = useState(String(div?.mi_pct ?? inicial?.mi_pct ?? miPctDefault));
+  const [nota, setNota] = useState(gasto?.nota ?? inicial?.nota ?? "");
+  const [conNota, setConNota] = useState(Boolean(gasto?.nota || inicial?.nota));
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
 
@@ -159,6 +168,7 @@ export function FormMovimiento({
       }
     >
       <form id={ID_FORM} onSubmit={guardar} className="flex flex-col gap-4">
+        {aviso && <Aviso tipo="info">Revisá: {aviso}</Aviso>}
         <Campo label="Importe">
           <InputPlata
             value={monto}

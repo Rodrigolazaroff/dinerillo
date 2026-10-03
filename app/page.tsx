@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { Asistente } from "@/components/Asistente";
 import { colorCategoria, PuntoCategoria } from "@/components/Categorias";
 import { FormMovimiento } from "@/components/FormMovimiento";
 import { IngresosVsGastos } from "@/components/Graficos";
@@ -128,6 +129,9 @@ export default function Inicio() {
             );
           })}
         </div>
+
+        {/* Dictar o subir una factura: abre el formulario que corresponda */}
+        <Asistente modo="libre" className="[&>*]:flex-1" />
 
         {/* Lo que pide hacer algo */}
         {f.avisos.length > 0 && (
