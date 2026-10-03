@@ -18,8 +18,10 @@ export interface Sesion {
  */
 export async function sesionActual(): Promise<Sesion | null> {
   const supabase = await supabaseServer();
-  const { data } = await supabase.auth.getUser();
-  const u = data.user;
+  // El token firmado ya trae quién es, su mail y su metadata: verificarlo acá
+  // es más rápido que preguntarle a Supabase en cada pedido.
+  const { data } = await supabase.auth.getClaims();
+  const u = data?.claims;
   if (!u) return null;
   const meta = u.user_metadata ?? {};
   const email = u.email ?? "";

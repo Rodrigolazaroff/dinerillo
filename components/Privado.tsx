@@ -53,7 +53,7 @@ export function Monto({
   return <>{corto ? plataCorta(mostrado) : plata(mostrado)}</>;
 }
 
-const DURACION_MS = 600;
+const DURACION_MS = 380;
 
 /**
  * El número sube (o baja) hasta su valor en vez de saltar: se entiende que

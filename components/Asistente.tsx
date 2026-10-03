@@ -1,16 +1,17 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Emoji } from "@/components/Emoji";
 import { FormCobroIngreso } from "@/components/FormCobroIngreso";
 import { ETIQUETA_GASTO, FormGasto } from "@/components/FormGasto";
 import { FormMovimiento } from "@/components/FormMovimiento";
+import { PanelAhorro } from "@/components/PanelAhorro";
 import { avisar } from "@/components/Toast";
 import { Boton, Panel, Textarea } from "@/components/ui";
 import { enPesos, preferencias } from "@/lib/finanzas";
 import { TIPOS_GASTO } from "@/lib/schemas";
-import type { TipoGasto } from "@/lib/types";
+import { emojiDe, sugerirEmoji } from "@/lib/emoji";
+import type { Ingreso, TipoGasto } from "@/lib/types";
 import { useData, usaAlquileres, usaDivision } from "@/lib/useData";
 import { useMes } from "@/lib/useMes";
 
@@ -18,14 +19,15 @@ import { useMes } from "@/lib/useMes";
 // que se abra el formulario ya completo. Nunca guarda solo: la persona revisa
 // y toca "Cargar". El archivo viaja al server, se lee y se descarta.
 //
-// En una pantalla puntual (Gastos, División, Boletas) el destino es el de esa
-// pantalla. En el Inicio decide lo que se entendió.
+// En una pantalla puntual (Gastos, División, Boletas, Ingresos) el destino es
+// el de esa pantalla. En el Inicio decide lo que se entendió: un gasto, un
+// cobro ("cobré el sueldo") o un ahorro ("aparté 200 dólares").
 
-type Modo = "libre" | "gasto" | "compartido" | "boleta";
+type Modo = "libre" | "gasto" | "compartido" | "boleta" | "ingreso";
 
 /** Lo que devuelve /api/ia. Espejo del schema del server. */
 interface Interpretacion {
-  destino: "gasto" | "compartido" | "boleta" | "cobro_ingreso";
+  destino: "gasto" | "compartido" | "boleta" | "cobro_ingreso" | "ahorro";
   monto: number | null;
   descripcion: string;
   fecha: string | null;
@@ -36,6 +38,9 @@ interface Interpretacion {
   mi_pct: number | null;
   tipo_boleta: TipoGasto | null;
   ingreso: string | null;
+  /** Cómo llamó al ingreso, aunque todavía no exista ("Sueldo"). */
+  nombre_ingreso: string | null;
+  moneda: "ARS" | "USD" | null;
   duda: string | null;
 }
 
@@ -92,7 +97,7 @@ async function prepararArchivo(f: File): Promise<{ tipo: string; base64: string 
 }
 
 async function interpretar(
-  cuerpo: { texto?: string; archivo?: { tipo: string; base64: string } },
+  cuerpo: { texto?: string; archivo?: { tipo: string; base64: string }; pantalla?: Modo },
   senal: AbortSignal
 ): Promise<Interpretacion> {
   const res = await fetch("/api/ia", {
@@ -161,12 +166,14 @@ export function Asistente({
 }) {
   const { data, recargar } = useData();
   const [mes] = useMes();
-  const router = useRouter();
   const archivoRef = useRef<HTMLInputElement>(null);
 
   const [dictando, setDictando] = useState(false);
   const [pensando, setPensando] = useState<"" | "audio" | "factura">("");
   const [resultado, setResultado] = useState<Interpretacion | null>(null);
+  // Un cobro dictado de un ingreso que no se reconoció: lo elige la persona.
+  const [elegido, setElegido] = useState<Ingreso | null>(null);
+  const [creando, setCreando] = useState(false);
   const cancelar = useRef<AbortController | null>(null);
 
   // Si la pantalla se va mientras espera, se corta el pedido.
@@ -180,15 +187,9 @@ export function Asistente({
     const reloj = setTimeout(() => ctrl.abort(), LIMITE_MS);
     setPensando(tipo);
     try {
-      const datos = await interpretar(cuerpo, ctrl.signal);
-      // Un cobro de ingreso sin saber de qué fuente no se puede precargar.
-      const esCobro = modo === "libre" && datos.destino === "cobro_ingreso";
-      if (esCobro && !data?.ingresos.some((i) => !i.deleted_at && i.nombre === datos.ingreso)) {
-        avisar("No supe de qué ingreso es. Elegilo.");
-        router.push("/ingresos");
-      } else {
-        setResultado(datos);
-      }
+      const datos = await interpretar({ ...cuerpo, pantalla: modo }, ctrl.signal);
+      setElegido(null);
+      setResultado(datos);
     } catch (e) {
       const cortado = e instanceof DOMException && e.name === "AbortError";
       avisar(cortado ? "Tardó demasiado. Probá de nuevo." : e instanceof Error ? e.message : "No lo entendí. Probá de nuevo.");
@@ -219,7 +220,9 @@ export function Asistente({
   const entendido = resultado
     ? modo === "libre" || (mioOCompartido(modo) && mioOCompartido(resultado.destino))
       ? resultado.destino
-      : modo
+      : modo === "ingreso"
+        ? "cobro_ingreso"
+        : modo
     : null;
   const destino =
     (entendido === "compartido" && !divide) || (entendido === "boleta" && modo === "libre" && !conAlquileres)
@@ -233,11 +236,40 @@ export function Asistente({
   const prefs = preferencias(data?.config ?? {});
   const idCategoria = (nombre: string | null) =>
     (nombre && categorias.find((c) => !c.deleted_at && c.nombre === nombre)?.id) || "";
+  const activos = (data?.ingresos ?? []).filter((i) => !i.deleted_at && !i.archivado_at);
   const ingreso =
-    resultado?.ingreso
-      ? data?.ingresos.find((i) => !i.deleted_at && i.nombre === resultado.ingreso)
-      : undefined;
-  const cerrar = () => setResultado(null);
+    elegido ??
+    (resultado?.ingreso ? activos.find((i) => i.nombre === resultado.ingreso) : undefined);
+  const cerrar = () => {
+    setResultado(null);
+    setElegido(null);
+  };
+
+  /** "Cobré el sueldo" sin un ingreso Sueldo: se crea ahí mismo, en su moneda. */
+  async function crearIngreso(nombre: string) {
+    if (creando) return;
+    setCreando(true);
+    const moneda = resultado?.moneda === "USD" ? "USD" : "ARS";
+    const emoji = sugerirEmoji(nombre, "bolsa-plata");
+    try {
+      const res = await fetch("/api/ingresos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre, moneda, emoji, orden: activos.length }),
+      });
+      const r = await res.json().catch(() => ({}));
+      if (!res.ok || !r.id) return avisar(r.error ?? "No pude crear el ingreso");
+      setElegido({
+        id: r.id, nombre, moneda, emoji, nota: "", orden: activos.length,
+        archivado_at: "", created_at: "", deleted_at: "",
+      });
+      void recargar();
+    } catch {
+      avisar("No hay conexión. Probá de nuevo.");
+    } finally {
+      setCreando(false);
+    }
+  }
 
   const aviso = resultado?.duda ?? undefined;
   const fecha = resultado?.fecha ?? undefined;
@@ -334,6 +366,61 @@ export function Asistente({
             cerrar();
             avisar("Boleta cargada");
           }}
+        />
+      )}
+
+      {resultado && destino === "cobro_ingreso" && !ingreso && data && (
+        <Panel abierto cerrar={cerrar} titulo="¿De qué ingreso?">
+          <div className="flex flex-col gap-2">
+            {resultado.monto && (
+              <p className="text-sm text-suave">
+                Entendí <span className="tabular font-semibold text-tinta">{resultado.monto.toLocaleString("es-AR")}</span>
+                {resultado.moneda === "USD" ? " dólares" : " pesos"}.
+              </p>
+            )}
+            {activos.map((i) => (
+              <button
+                key={i.id}
+                type="button"
+                onClick={() => setElegido(i)}
+                className="flex min-h-12 items-center gap-3 rounded-xl border border-borde px-3 text-left text-sm font-medium transition-colors hover:bg-celeste-claro"
+              >
+                <Emoji nombre={emojiDe(i.emoji, i.nombre, "bolsa-plata")} tamano="md" />
+                <span className="flex-1">{i.nombre}</span>
+                <span className="text-xs text-tenue">{i.moneda === "ARS" ? "$" : i.moneda}</span>
+              </button>
+            ))}
+            {resultado.nombre_ingreso &&
+              !activos.some((i) => i.nombre.toLowerCase() === resultado.nombre_ingreso!.toLowerCase()) && (
+                <Boton
+                  className="min-h-12"
+                  disabled={creando}
+                  onClick={() => crearIngreso(resultado.nombre_ingreso!)}
+                >
+                  {creando ? "Creando…" : `Crear «${resultado.nombre_ingreso}»`}
+                </Boton>
+              )}
+          </div>
+        </Panel>
+      )}
+
+      {resultado && destino === "ahorro" && data && (
+        <PanelAhorro
+          cerrar={cerrar}
+          mes={mes}
+          falta={0}
+          ahorros={(data.ahorros ?? []).filter((a) => !a.deleted_at && a.periodo === mes)}
+          inicial={{
+            monto: resultado.monto ?? undefined,
+            moneda: resultado.moneda ?? "ARS",
+            fecha,
+            nota: resultado.descripcion,
+          }}
+          aviso={aviso}
+          ultimoTipoCambio={
+            [...(data.ahorros ?? [])].reverse().find((a) => !a.deleted_at && a.moneda === "USD")?.tipo_cambio ?? null
+          }
+          recargar={recargar}
         />
       )}
 

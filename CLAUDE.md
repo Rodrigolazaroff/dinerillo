@@ -38,6 +38,14 @@ Entrar con Google o con mail y contraseña (con "Crear cuenta" en la misma panta
 Cada cuenta ve **solo lo suyo**: todas las tablas tienen `user_id` (lo pone la base con
 `auth.uid()`) y una política RLS `user_id = auth.uid()`. El proxy (`proxy.ts`) refresca
 la sesión y manda al login a quien no la tenga; los endpoints lo vuelven a chequear.
+Los dos usan `getClaims()`, que verifica la firma del token ahí mismo: sin un viaje a
+Supabase en cada navegación (`getUser()` lo hacía y se notaba).
+
+- **¿Olvidaste la contraseña?** en el login manda un link; vuelve por `/auth/callback`
+  con `siguiente=/nueva-clave` (único destino permitido) y ahí se elige la nueva.
+- **Eliminar mi cuenta** (Ajustes) llama a `eliminar_mi_cuenta()` (migración 0005):
+  borra el usuario de Auth y, por el `on delete cascade` de cada tabla, todos sus datos.
+  Solo puede borrarse a uno mismo. Sin clave de servicio.
 
 - Google: proyecto de Google Cloud `dinerillo`, cliente OAuth "Dinerillo web". La
   pantalla de consentimiento está en **Prueba**: solo entran con Google los mails de la
@@ -47,7 +55,8 @@ la sesión y manda al login a quien no la tenga; los endpoints lo vuelven a cheq
 
 **Bienvenida** (`/bienvenida`): una cuenta nueva contesta cuatro preguntas (nombre, de
 dónde le entra la plata, meta de ahorro, si divide gastos) y la app queda armada: crea
-los ingresos elegidos, ocho categorías de base y guarda `onboarding` en `ajustes`. El
+los ingresos elegidos (Alquileres es una opción más entre ellos), ocho categorías de
+base y guarda `onboarding` en `ajustes`. El
 `Shell` manda ahí a quien no tiene `onboarding` ni datos; a quien ya usaba la app lo
 marca `onboarding=previo` en silencio. Cada paso se guarda al seguir.
 
@@ -59,19 +68,22 @@ hay, el primer nombre de la cuenta (`nombreVisible` en `lib/useData.ts`).
 
 Pestañas abajo (en compu, arriba): **Inicio · Ingresos · Gastos · División**. División
 desaparece si la persona dijo que no divide gastos (`ajustes.divide = "no"`) y no tiene
-ninguno cargado; Alquileres aparece en Ingresos solo si dijo que tiene
+ninguno cargado; Alquileres aparece en Ingresos solo si lo eligió como ingreso
 (`ajustes.alquileres = "si"`) o ya cargó un contrato (`usaDivision` / `usaAlquileres` en
-`lib/useData.ts`). Arriba, el ojito que oculta los montos y el avatar con tu cuenta.
+`lib/useData.ts`). No hay un interruptor de Alquileres en Ajustes: se activa desde "Nuevo
+ingreso" (¿Alquilás propiedades?). Arriba, el ojito que oculta los montos y el avatar.
 
-- **Inicio** (`/`): lo que te quedó en el mes, entró/salió, el ahorro real contra el
-  sugerido, atajos de carga, avisos accionables y el gráfico del año.
+- **Inicio** (`/`): lo que te quedó en el mes, entró/salió, **ahorrado / disponible** con
+  el botón "Ahorrar" (`components/PanelAhorro.tsx`), atajos de carga, avisos accionables y
+  el gráfico del año.
 - **Ingresos** (`/ingresos`, `/ingresos/[id]`): fuentes que crea el usuario (nada
   precargado), cada una con su moneda y sus cobros. Alquileres aparece como un ingreso
-  más y abre su módulo. Arriba, chiquito, el ahorro sugerido (15% por defecto, editable).
+  más y abre su módulo. Arriba, la meta de ahorro y Dictar/Factura para cargar cobros.
 - **Alquileres** (`/alquileres/...`): tres secciones, **Cobros** (`/alquileres`: lo que
   falta cobrar, la lista para cobrar, el próximo aumento, lo real del año a la fecha y
   los cobros anteriores), **Boletas** (en el celu, un mes a la vez) y **Contratos** (con
-  la escalera de cada contrato). `/cobros`, `/alquileres/cobros` y `/contratos` redirigen.
+  la escalera de cada contrato y, plegados al final, los valores con que arranca un
+  contrato nuevo). `/cobros`, `/alquileres/cobros` y `/contratos` redirigen.
 - **Gastos** (`/gastos`): los gastos personales + una línea "Compartidos con …" con tu
   parte, que se calcula desde División (no se copia).
 - **División** (`/division`): gastos con la pareja, quién pagó y qué parte es tuya. El
@@ -84,13 +96,22 @@ verifican en `npm test`. Reglas:
 - Ingreso de alquileres = lo cobrado menos el reintegro de boletas (eso es plata que vuelve).
 - Tu gasto de lo compartido es tu parte, la pague quien la pague.
 - La transferencia del ajuste con la pareja no es ingreso ni gasto.
+- **Lo que te quedó no es lo que ahorraste.** Te quedó = entró − salió. Ahorrado = lo que
+  apartaste a propósito ese mes (tabla `ahorros`, en pesos o dólares con el tipo de
+  cambio del día). Disponible = te quedó − ahorrado. La meta (15% de lo que entró, por
+  defecto) se cumple con lo ahorrado, no con lo que sobró.
+
+Guardar un gasto, un cobro o un ahorro se ve al instante: la pantalla actualiza la caché
+de SWR con la fila nueva (`actualizarLocal` en `lib/useData.ts`) y atrás vuelve a leer
+todo. Las funciones de Vercel corren en São Paulo (`gru1` en `vercel.json`), al lado de
+la base.
 
 Borrar es blando y se puede deshacer desde el aviso de abajo (`PATCH` con
 `restaurar: true`).
 
 ## Carga asistida (dictado y facturas)
 
-Botones "Dictar" y "Factura" en Inicio, Gastos, División y Boletas
+Botones "Dictar" y "Factura" en Inicio, Ingresos, Gastos, División y Boletas
 (`components/Asistente.tsx`). El texto dictado (Web Speech API del navegador, gratis) o
 el PDF/foto van a `/api/ia`, que llama a Claude (`claude-haiku-4-5`, tope de 800 tokens
 de salida, timeout 25 s con un reintento) y devuelve los datos interpretados. **Nunca
@@ -98,7 +119,9 @@ guarda:** abre el formulario precargado para revisar. El archivo no se guarda en
 lado. Las fotos se achican a 1600 px en el navegador antes de mandarlas. La pantalla corta
 a los 35 s y vuelve a habilitar los botones. Necesita `ANTHROPIC_API_KEY` en Vercel.
 
-En Inicio decide lo que se entendió (gasto, compartido, boleta o cobro de un ingreso).
+En Inicio decide lo que se entendió: gasto, compartido, boleta, cobro de un ingreso
+("hoy cobré 5 millones de sueldo") o ahorro ("aparté 200 dólares"). Un cobro de un
+ingreso que no existe abre "¿De qué ingreso?" con los tuyos y la opción de crearlo ahí.
 Para que se vea a dónde va, el formulario de gasto nuevo muestra arriba **Mío / Con
 {pareja}** ya elegido y se cambia de un toque. Lo que la persona no usa no se ofrece: sin
 División, "compartido" cae en gasto; sin Alquileres, una factura de luz es un gasto y no
@@ -188,7 +211,8 @@ prefijo `alq_`:
 
 Del resto de los módulos: `ingresos`, `ingreso_cobros` (con `tipo_cambio`),
 `categorias` (compartidas entre Gastos y División, color = slot de la paleta),
-`gastos`, `div_gastos` (`pago`, `mi_pct`) y `div_cierres`.
+`gastos`, `div_gastos` (`pago`, `mi_pct`), `div_cierres` y `ahorros` (`monto`, `moneda`,
+`tipo_cambio`; migración 0005, ya aplicada en el proyecto `dinerillo`).
 
 Todas llevan además `user_id, created_at, deleted_at`. Las claves foráneas incluyen
 `user_id`, así un contrato no puede colgar de una propiedad de otra cuenta.

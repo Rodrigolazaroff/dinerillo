@@ -1,5 +1,5 @@
 import type {
-  Alquiler, Categoria, Cobro, CondicionesDefault, Config, Contrato, DivCierre, DivGasto, Gasto,
+  Ahorro, Alquiler, Categoria, Cobro, CondicionesDefault, Config, Contrato, DivCierre, DivGasto, Gasto,
   Ingreso, IngresoCobro, MiGasto, Propiedad,
 } from "./types";
 import { CONDICIONES_FABRICA } from "./schemas";
@@ -22,6 +22,7 @@ export const TABLAS = {
   misGastos: "gastos",
   divGastos: "div_gastos",
   divCierres: "div_cierres",
+  ahorros: "ahorros",
 } as const;
 
 export type Tabla = (typeof TABLAS)[keyof typeof TABLAS];
@@ -147,6 +148,23 @@ const unDivCierre = (f: Fila): DivCierre => ({
   nota: txt(f.nota),
 });
 
+const unAhorro = (f: Fila): Ahorro => ({
+  ...base(f),
+  fecha: txt(f.fecha),
+  periodo: txt(f.periodo),
+  monto: num(f.monto),
+  moneda: txt(f.moneda) || "ARS",
+  tipo_cambio: num(f.tipo_cambio) || 1,
+  nota: txt(f.nota),
+});
+
+/**
+ * La tabla todavía no existe: falta correr una migración en Supabase. Mejor
+ * mostrar la app sin esa parte que romper todo.
+ */
+export const tablaFaltante = (e: { code?: string } | null) =>
+  e?.code === "42P01" || e?.code === "PGRST205";
+
 export interface Datos {
   propiedades: Propiedad[];
   contratos: Contrato[];
@@ -160,24 +178,27 @@ export interface Datos {
   misGastos: MiGasto[];
   divGastos: DivGasto[];
   divCierres: DivCierre[];
+  ahorros: Ahorro[];
 }
 
 export async function leerTodo(): Promise<Datos> {
   const supabase = await supabaseServer();
-  const leer = async (tabla: string) => {
+  const leer = async (tabla: string, opcional = false) => {
     const { data, error } = await supabase.from(tabla).select("*");
+    if (error && opcional && tablaFaltante(error)) return [];
     if (error) throw new Error(`No pude leer ${tabla}: ${error.message}`);
     return (data ?? []) as Fila[];
   };
 
   const [
     props, contratos, fijados, cobros, boletas, ajustes,
-    ingresos, ingresoCobros, categorias, misGastos, divGastos, divCierres,
+    ingresos, ingresoCobros, categorias, misGastos, divGastos, divCierres, ahorros,
   ] = await Promise.all([
     leer(TABLAS.propiedades), leer(TABLAS.contratos), leer(TABLAS.alquileres),
     leer(TABLAS.cobros), leer(TABLAS.boletas), leer("ajustes"),
     leer(TABLAS.ingresos), leer(TABLAS.ingresoCobros), leer(TABLAS.categorias),
     leer(TABLAS.misGastos), leer(TABLAS.divGastos), leer(TABLAS.divCierres),
+    leer(TABLAS.ahorros, true),
   ]);
   const porOrden = <T extends { orden: number; nombre: string }>(a: T, b: T) =>
     a.orden - b.orden || a.nombre.localeCompare(b.nombre);
@@ -199,6 +220,7 @@ export async function leerTodo(): Promise<Datos> {
     misGastos: misGastos.map(unMiGasto),
     divGastos: divGastos.map(unDivGasto),
     divCierres: divCierres.map(unDivCierre),
+    ahorros: ahorros.map(unAhorro),
   };
 }
 

@@ -43,6 +43,8 @@ function Formulario() {
   const [error, setError] = useState("");
   const [aviso, setAviso] = useState("");
   const [mandando, setMandando] = useState<"google" | "mail" | null>(null);
+  // Dentro de "Entrar": pedir un link para cambiar la contraseña.
+  const [recuperando, setRecuperando] = useState(false);
 
   const volverA = () => `${window.location.origin}/auth/callback`;
 
@@ -66,6 +68,17 @@ function Formulario() {
     setAviso("");
     setMandando("mail");
     const supabase = supabaseNavegador();
+
+    if (modo === "entrar" && recuperando) {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${volverA()}?siguiente=/nueva-clave`,
+      });
+      setMandando(null);
+      if (error) return setError(traducir(error.message));
+      // Mismo mensaje haya o no cuenta: no se le cuenta a nadie qué mails existen.
+      setAviso(`Si hay una cuenta con ${email}, te llegó un link para cambiar la contraseña.`);
+      return;
+    }
 
     if (modo === "entrar") {
       const { error } = await supabase.auth.signInWithPassword({ email, password: clave });
@@ -142,6 +155,7 @@ function Formulario() {
           ]}
           onCambio={(m) => {
             setModo(m);
+            setRecuperando(false);
             setError("");
             setAviso("");
           }}
@@ -169,23 +183,40 @@ function Formulario() {
               required
             />
           </Campo>
-          <Campo label="Contraseña" hint={modo === "crear" ? "Al menos 8 caracteres." : undefined}>
-            <Input
-              type="password"
-              value={clave}
-              onChange={(e) => setClave(e.target.value)}
-              autoComplete={modo === "crear" ? "new-password" : "current-password"}
-              minLength={modo === "crear" ? 8 : undefined}
-              required
-            />
-          </Campo>
+          {!recuperando && (
+            <Campo label="Contraseña" hint={modo === "crear" ? "Al menos 8 caracteres." : undefined}>
+              <Input
+                type="password"
+                value={clave}
+                onChange={(e) => setClave(e.target.value)}
+                autoComplete={modo === "crear" ? "new-password" : "current-password"}
+                minLength={modo === "crear" ? 8 : undefined}
+                required
+              />
+            </Campo>
+          )}
           <Aviso tipo="error">{error || (aviso ? "" : errorDeLaUrl)}</Aviso>
           <Aviso tipo="ok">{aviso}</Aviso>
-          <Boton type="submit" disabled={ocupado || !email || !clave} className="w-full">
-            {mandando === "mail"
-              ? modo === "entrar" ? "Entrando…" : "Creando la cuenta…"
-              : modo === "entrar" ? "Entrar" : "Crear cuenta"}
+          <Boton type="submit" disabled={ocupado || !email || (!recuperando && !clave)} className="w-full">
+            {recuperando
+              ? mandando === "mail" ? "Mandando…" : "Mandarme un link"
+              : mandando === "mail"
+                ? modo === "entrar" ? "Entrando…" : "Creando la cuenta…"
+                : modo === "entrar" ? "Entrar" : "Crear cuenta"}
           </Boton>
+          {modo === "entrar" && (
+            <button
+              type="button"
+              onClick={() => {
+                setRecuperando(!recuperando);
+                setError("");
+                setAviso("");
+              }}
+              className="min-h-11 text-sm font-medium text-acento"
+            >
+              {recuperando ? "Volver a entrar" : "¿Olvidaste la contraseña?"}
+            </button>
+          )}
         </form>
       </div>
     </main>

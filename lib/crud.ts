@@ -113,7 +113,8 @@ function sinIndefinidos(o: Record<string, unknown>) {
 export function falla(e: { code?: string; message: string }) {
   console.error("[dinerillo]", e.code, e.message);
   const msg =
-    e.code === "23503" ? "Eso está vinculado a algo que no existe o que todavía se usa."
+    e.code === "42P01" || e.code === "PGRST205" ? "Falta actualizar la base de datos. Avisale a quien la mantiene."
+    : e.code === "23503" ? "Eso está vinculado a algo que no existe o que todavía se usa."
     : e.code === "23514" ? "Algún dato está fuera de rango. Revisalo."
     : e.code === "23505" ? "Ya existe un registro igual."
     : e.code === "42501" ? "No tenés permiso para hacer eso."

@@ -7,7 +7,7 @@ import {
   aCampo, aNumero, hoyISO, periodoActual, periodoLargo, plata, redondear, simboloMoneda, sumarMeses,
 } from "@/lib/format";
 import type { Ingreso, IngresoCobro } from "@/lib/types";
-import { enviar } from "@/lib/useData";
+import { actualizarLocal, conFila, enviar, sinFila } from "@/lib/useData";
 
 // Cargar lo que entró de una fuente. Dos fechas porque no siempre coinciden:
 // cuándo entró la plata y a qué mes corresponde (la consultoría de octubre que
@@ -82,7 +82,13 @@ export function FormCobroIngreso({
       : await enviar(URL, "POST", cuerpo);
     setGuardando(false);
     if (!r.ok) return setError(r.error);
-    await recargar();
+    const id = cobro?.id ?? r.id;
+    if (id) {
+      const fila = { id, created_at: cobro?.created_at ?? new Date().toISOString(), deleted_at: "", ...cuerpo };
+      void actualizarLocal((d) => ({ ...d, ingresoCobros: conFila(d.ingresoCobros, fila) }));
+    } else {
+      void recargar();
+    }
     cerrar();
     avisar(cobro ? "Cambios guardados" : "Cobro cargado");
   }
@@ -93,7 +99,7 @@ export function FormCobroIngreso({
     const r = await enviar(URL, "DELETE", { id: cobro.id });
     setGuardando(false);
     if (!r.ok) return setError(r.error);
-    await recargar();
+    void actualizarLocal((d) => ({ ...d, ingresoCobros: sinFila(d.ingresoCobros, cobro.id) }));
     cerrar();
     avisar("Cobro borrado", async () => {
       await enviar(URL, "PATCH", { id: cobro.id, restaurar: true });

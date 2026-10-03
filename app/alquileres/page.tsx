@@ -171,7 +171,7 @@ export default function Cobros() {
             <div className="mt-5">
               <div className="h-2 w-full overflow-hidden rounded-full bg-white/20" role="presentation">
                 <div
-                  className={`h-full rounded-full transition-[width] duration-700 ease-[var(--ease-quart)] ${
+                  className={`h-full rounded-full transition-[width] duration-300 ease-[var(--ease-quart)] ${
                     todoCobrado ? "bg-lima" : "bg-celeste"
                   }`}
                   style={{ width: `${avance}%` }}

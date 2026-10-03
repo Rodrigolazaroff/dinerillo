@@ -7,7 +7,8 @@ import { colorCategoria } from "@/components/Categorias";
 import { Emoji } from "@/components/Emoji";
 import { FormMovimiento } from "@/components/FormMovimiento";
 import { IngresosVsGastos } from "@/components/Graficos";
-import { IconoFlecha } from "@/components/iconos";
+import { PanelAhorro } from "@/components/PanelAhorro";
+import { IconoFlecha, IconoMas } from "@/components/iconos";
 import { Monto, usePrivado } from "@/components/Privado";
 import { SelectorMes } from "@/components/SelectorMes";
 import { Shell } from "@/components/Shell";
@@ -45,6 +46,7 @@ export default function Inicio() {
   const f = useFinanzas();
   const [oculto] = usePrivado();
   const [cargar, setCargar] = useState<"propio" | "compartido" | null>(null);
+  const [ahorrando, setAhorrando] = useState(false);
 
   if (f.error) {
     return (
@@ -62,9 +64,13 @@ export default function Inicio() {
   }
 
   const r = f.resumen;
-  const tasa = r.tasaAhorro;
-  const llega = tasa !== null && tasa * 100 >= r.ahorroPct;
-  const avance = Math.max(0, Math.min(100, ((tasa ?? 0) * 100 * 100) / Math.max(r.ahorroPct, 1)));
+  // La meta se cumple con lo que apartaste, no con lo que sobró.
+  const meta = r.ahorroSugerido;
+  const llega = meta > 0 && r.ahorrado >= meta - 1;
+  const avance = meta > 0 ? Math.max(0, Math.min(100, (r.ahorrado / meta) * 100)) : 0;
+  const ahorrosDelMes = (f.data.ahorros ?? []).filter((a) => !a.deleted_at && a.periodo === f.mes);
+  const ultimoDolar =
+    [...(f.data.ahorros ?? [])].reverse().find((a) => !a.deleted_at && a.moneda === "USD")?.tipo_cambio ?? null;
   const nombre = nombreVisible(f.data);
   const divide = usaDivision(f.data);
   const ingresos = r.ingresos.lineas.filter((l) => l.pesos > 0);
@@ -115,12 +121,37 @@ export default function Inicio() {
             </Link>
           </div>
 
-          {r.ingresos.total > 0 && (
-            <div className="mt-5">
-              <div className="h-2 w-full overflow-hidden rounded-full bg-white/20" role="presentation">
+          {/* Lo que te quedó, partido: lo que apartaste y lo que tenés a mano. */}
+          {(r.ingresos.total > 0 || r.ahorrado > 0) && (
+            <div className="mt-5 border-t border-white/15 pt-4">
+              <div className="flex items-end justify-between gap-3">
+                <div className="grid flex-1 grid-cols-2 gap-3">
+                  <button type="button" onClick={() => setAhorrando(true)} className="text-left">
+                    <p className="text-xs font-medium text-white/80">Ahorrado</p>
+                    <p className="numero mt-1 text-lg font-bold">
+                      <Monto valor={r.ahorrado} />
+                    </p>
+                  </button>
+                  <div>
+                    <p className="text-xs font-medium text-white/80">Disponible</p>
+                    <p className="numero mt-1 text-lg font-bold">
+                      <Monto valor={r.disponible} />
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAhorrando(true)}
+                  className="flex min-h-11 shrink-0 items-center gap-1 rounded-full bg-lima px-4 text-sm font-bold text-tinta transition-transform duration-100 active:scale-[0.95]"
+                >
+                  <IconoMas />
+                  Ahorrar
+                </button>
+              </div>
+              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/20" role="presentation">
                 <div
-                  // Lleno = llegaste al ahorro que te propusiste. En lima cuando llegás.
-                  className={`h-full rounded-full transition-[width] duration-700 ease-[var(--ease-quart)] ${
+                  // Lleno = apartaste lo que te propusiste. En lima cuando llegás.
+                  className={`h-full rounded-full transition-[width] duration-300 ease-[var(--ease-quart)] ${
                     llega ? "bg-lima" : "bg-celeste"
                   }`}
                   style={{ width: `${avance}%` }}
@@ -128,13 +159,11 @@ export default function Inicio() {
               </div>
               <p className="mt-2 flex items-center gap-1.5 text-xs text-white/90">
                 {llega && <Emoji nombre="chispas" tamano="xs" />}
-                {oculto
-                  ? `Meta de ahorro ${r.ahorroPct}%`
-                  : llega
-                    ? `¡Llegaste! Guardás ${Math.round((tasa ?? 0) * 100)}% · meta ${r.ahorroPct}%`
-                    : tasa !== null && tasa > 0
-                      ? `Guardás ${Math.round(tasa * 100)}% · meta ${r.ahorroPct}% (${plata(r.ahorroSugerido)})`
-                      : `Sin ahorro · meta ${r.ahorroPct}%`}
+                {llega
+                  ? `¡Meta cumplida! ${r.ahorroPct}% de lo que entró`
+                  : oculto
+                    ? `Meta ${r.ahorroPct}%`
+                    : `Meta ${r.ahorroPct}% · ${plata(meta)}`}
               </p>
             </div>
           )}
@@ -254,6 +283,17 @@ export default function Inicio() {
 
         {!oculto && <IngresosVsGastos serie={f.serie} actual={f.mes} />}
       </div>
+
+      {ahorrando && (
+        <PanelAhorro
+          cerrar={() => setAhorrando(false)}
+          mes={f.mes}
+          falta={meta - r.ahorrado}
+          ahorros={ahorrosDelMes}
+          ultimoTipoCambio={ultimoDolar}
+          recargar={f.recargar}
+        />
+      )}
 
       {cargar && (
         <FormMovimiento

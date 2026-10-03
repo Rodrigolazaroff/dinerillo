@@ -197,6 +197,22 @@ export interface DivGasto {
   deleted_at: string;
 }
 
+/**
+ * Plata que apartaste a propósito: un plazo fijo, dólares, un FCI. Sale de lo
+ * que te quedó en el mes; lo que no ahorraste queda disponible.
+ */
+export interface Ahorro {
+  id: string;
+  fecha: string;             // YYYY-MM-DD
+  periodo: string;           // YYYY-MM del que sale
+  monto: number;             // en su moneda
+  moneda: string;            // ISO 4217
+  tipo_cambio: number;       // pesos por unidad; 1 en pesos
+  nota: string;
+  created_at: string;
+  deleted_at: string;
+}
+
 /** El ajuste del mes ya transferido. No es ingreso ni gasto. */
 export interface DivCierre {
   id: string;

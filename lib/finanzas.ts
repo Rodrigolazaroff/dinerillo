@@ -1,7 +1,7 @@
 import type { ContratoCalculado } from "./calc";
 import { emojiDe } from "./emoji";
 import { diasEntre, redondear, sumarMeses, ultimoDiaDelMes } from "./format";
-import type { Categoria, Config, DivCierre, DivGasto, Ingreso, IngresoCobro, MiGasto } from "./types";
+import type { Ahorro, Categoria, Config, DivCierre, DivGasto, Ingreso, IngresoCobro, MiGasto } from "./types";
 
 // Las cuentas del mes, puras como las de calc.ts: mismas entradas, misma
 // salida. El cliente las corre con lo que ya tiene en memoria, así cambiar de
@@ -15,6 +15,8 @@ import type { Categoria, Config, DivCierre, DivGasto, Ingreso, IngresoCobro, MiG
 //   adelantaste por el otro no es gasto, es plata que te deben.
 // - La transferencia del ajuste no es ingreso ni gasto: es esa misma plata que
 //   vuelve. Contarla sumaría dos veces.
+// - Lo que te quedó no es lo que ahorraste. Ahorrado es lo que apartaste a
+//   propósito; el resto de lo que te quedó está disponible.
 
 export const ID_ALQUILERES = "alquileres";
 export const SIN_CATEGORIA = "";
@@ -60,6 +62,8 @@ export interface Entradas {
   misGastos: MiGasto[];
   divGastos: DivGasto[];
   divCierres: DivCierre[];
+  /** Puede faltar si la base todavía no tiene la tabla. */
+  ahorros?: Ahorro[];
   calculados: ContratoCalculado[];
   config: Config;
 }
@@ -136,6 +140,10 @@ export interface ResumenMes {
   tasaAhorro: number | null;
   ahorroSugerido: number;
   ahorroPct: number;
+  /** Lo que apartaste este mes, en pesos. */
+  ahorrado: number;
+  /** Lo que te quedó y no apartaste: en la cuenta, en efectivo. */
+  disponible: number;
   division: Division;
 }
 
@@ -237,6 +245,9 @@ export function resumenDelMes(e: Entradas, periodo: string): ResumenMes {
   const totalGastos = redondear(propios + compartidos);
 
   const quedo = redondear(totalIngresos - totalGastos);
+  const ahorrado = redondear(
+    vivos(e.ahorros ?? []).filter((a) => a.periodo === periodo).reduce((s, a) => s + enPesos(a), 0)
+  );
   return {
     periodo,
     ingresos: { total: totalIngresos, lineas, alquileresPorCobrar: alq.porCobrar },
@@ -250,6 +261,8 @@ export function resumenDelMes(e: Entradas, periodo: string): ResumenMes {
     tasaAhorro: totalIngresos > 0 ? quedo / totalIngresos : null,
     ahorroSugerido: redondear((totalIngresos * prefs.ahorroPct) / 100),
     ahorroPct: prefs.ahorroPct,
+    ahorrado,
+    disponible: redondear(quedo - ahorrado),
     division: divisionDelMes(e.divGastos, e.divCierres, periodo),
   };
 }

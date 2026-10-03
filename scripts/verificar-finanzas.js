@@ -102,5 +102,28 @@ console.log("\n=== el ritmo del mes ===");
   chequeo("antes del día 10 no hay ritmo", f.insights(e, "2026-10", "2026-10-03").some((i) => i.id === "ritmo"), false);
 }
 
+console.log("\n=== lo que te quedó: ahorrado y disponible ===");
+{
+  const e = {
+    ...vacio,
+    ingresos: [{ ...base, id: "s", nombre: "Sueldo", moneda: "ARS", orden: 0, archivado_at: "" }],
+    ingresoCobros: [{ ...base, id: "c", ingreso_id: "s", fecha: "2026-10-01", periodo: "2026-10", monto: 1000000, tipo_cambio: 1 }],
+    misGastos: [{ ...base, id: "g", fecha: "2026-10-02", periodo: "2026-10", descripcion: "x", monto: 400000, categoria_id: "" }],
+    ahorros: [
+      { ...base, id: "a1", fecha: "2026-10-05", periodo: "2026-10", monto: 100000, moneda: "ARS", tipo_cambio: 1 },
+      // 100 dólares a 1.500: son 150.000 pesos apartados.
+      { ...base, id: "a2", fecha: "2026-10-06", periodo: "2026-10", monto: 100, moneda: "USD", tipo_cambio: 1500 },
+      // Borrado y de otro mes: no cuentan.
+      { ...base, id: "a3", fecha: "2026-10-07", periodo: "2026-10", monto: 999, moneda: "ARS", tipo_cambio: 1, deleted_at: "x" },
+      { ...base, id: "a4", fecha: "2026-09-07", periodo: "2026-09", monto: 50000, moneda: "ARS", tipo_cambio: 1 },
+    ],
+  };
+  const r = f.resumenDelMes(e, "2026-10");
+  chequeo("te quedó 1.000.000 − 400.000", r.quedo, 600000);
+  chequeo("ahorrado 100.000 + 100 USD × 1.500", r.ahorrado, 250000);
+  chequeo("disponible = quedó − ahorrado", r.disponible, 350000);
+  chequeo("sin tabla de ahorros, nada ahorrado", f.resumenDelMes({ ...e, ahorros: undefined }, "2026-10").ahorrado, 0);
+}
+
 console.log(fallas ? `\n${fallas} FALLAS` : "\nTODO OK: las cuentas del mes dan lo que tienen que dar.");
 process.exit(fallas ? 1 : 0);

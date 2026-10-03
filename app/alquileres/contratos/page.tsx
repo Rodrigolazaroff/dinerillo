@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
+import { CondicionesNuevas } from "@/components/CondicionesNuevas";
 import { FormContrato } from "@/components/FormContrato";
 import { FormPropiedad, LABEL_TIPO } from "@/components/FormPropiedad";
 import { EscaleraContrato } from "@/components/Graficos";
@@ -626,6 +627,8 @@ export default function ContratosPage() {
             </Card>
           </>
         )}
+
+        {puedeEditar && <CondicionesNuevas condiciones={data.condiciones} recargar={recargar} />}
       </div>
 
       <FormContrato

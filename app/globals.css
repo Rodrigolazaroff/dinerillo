@@ -128,7 +128,7 @@ body {
 }
 
 .aparece {
-  animation: aparecer 200ms var(--ease-salida) both;
+  animation: aparecer 160ms var(--ease-salida) both;
 }
 
 /* El diálogo aparece en el lugar, apenas más chico: no viaja por la pantalla. */
@@ -140,7 +140,7 @@ body {
 }
 
 .panel-entra {
-  animation: entrar-panel 200ms var(--ease-salida) both;
+  animation: entrar-panel 150ms var(--ease-salida) both;
 }
 
 @keyframes entrar-fondo {
@@ -150,7 +150,7 @@ body {
 }
 
 .fondo-entra {
-  animation: entrar-fondo 200ms var(--ease-salida) both;
+  animation: entrar-fondo 150ms var(--ease-salida) both;
 }
 
 /* En touch el :hover se dispara al tocar y queda pegado. */
@@ -205,7 +205,7 @@ body {
 
 .flota,
 .pop {
-  animation: pop 420ms var(--ease-quart) both;
+  animation: pop 280ms var(--ease-quart) both;
 }
 
 /* Las filas de una lista entran escalonadas, apenas: se nota que llegaron datos. */
@@ -217,10 +217,9 @@ body {
 }
 
 .lista-entra > * {
-  animation: entrar-fila 260ms var(--ease-quart) both;
+  animation: entrar-fila 180ms var(--ease-quart) both;
 }
-.lista-entra > :nth-child(2) { animation-delay: 30ms; }
-.lista-entra > :nth-child(3) { animation-delay: 60ms; }
-.lista-entra > :nth-child(4) { animation-delay: 90ms; }
-.lista-entra > :nth-child(5) { animation-delay: 120ms; }
-.lista-entra > :nth-child(n + 6) { animation-delay: 150ms; }
+.lista-entra > :nth-child(2) { animation-delay: 20ms; }
+.lista-entra > :nth-child(3) { animation-delay: 40ms; }
+.lista-entra > :nth-child(4) { animation-delay: 60ms; }
+.lista-entra > :nth-child(n + 5) { animation-delay: 80ms; }

@@ -54,8 +54,8 @@ export function AjustesFinanzas({
     });
     setGuardando(false);
     if (!r.ok) return setErr(r.error);
-    await recargar();
     avisar("Guardado");
+    void recargar();
   }
 
   return (

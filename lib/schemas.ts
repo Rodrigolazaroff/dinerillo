@@ -180,6 +180,15 @@ export const ingresoCobroSchema = z.object({
   nota: z.string().trim().max(500).default(""),
 });
 
+export const ahorroSchema = z.object({
+  fecha: fecha,
+  periodo,
+  monto: numero("Importe", 0.01),
+  moneda: moneda.default("ARS"),
+  tipo_cambio: numero("Tipo de cambio", 0.0001).default(1),
+  nota: z.string().trim().max(200).default(""),
+});
+
 export const categoriaSchema = z.object({
   nombre: z.string().trim().min(1, "Ponele un nombre a la categoría").max(40),
   color: numero("Color", 1, 8).default(1),

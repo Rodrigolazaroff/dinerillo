@@ -326,7 +326,7 @@ export function Medidor({ parte, total, tono = "ok" }: { parte: number; total: n
   return (
     <div className="h-1.5 w-full overflow-hidden rounded-full bg-pista" role="presentation">
       <div
-        className={`h-full rounded-full transition-[width] duration-500 ease-[var(--ease-salida)] ${
+        className={`h-full rounded-full transition-[width] duration-300 ease-[var(--ease-salida)] ${
           tono === "ok" ? "bg-ok" : "bg-acento"
         }`}
         style={{ width: `${p}%` }}

@@ -6,38 +6,17 @@ import { salir } from "@/components/MenuPerfil";
 import { BotonInstalar, useInstalable } from "@/components/PWA";
 import { Shell } from "@/components/Shell";
 import { avisar } from "@/components/Toast";
-import { Aviso, Boton, Campo, Card, Cargando, Input, InputPct, Interruptor } from "@/components/ui";
-import { aNumero } from "@/lib/format";
-import { CONDICIONES_FABRICA } from "@/lib/schemas";
-import type { CondicionesDefault } from "@/lib/types";
-import { enviar, useData, usaAlquileres } from "@/lib/useData";
-
-type Condiciones = Record<keyof CondicionesDefault, string>;
-
-const aTexto = (c: CondicionesDefault): Condiciones =>
-  Object.fromEntries(Object.entries(c).map(([k, v]) => [k, String(v).replace(".", ",")])) as Condiciones;
-
-/** Los campos de condiciones, en el orden en que se leen. */
-const CAMPOS: { clave: keyof CondicionesDefault; label: string; pct?: boolean }[] = [
-  { clave: "aumento_pct", label: "Aumento", pct: true },
-  { clave: "aumento_meses", label: "Cada cuántos meses" },
-  { clave: "meses", label: "Duración (meses)" },
-  { clave: "comision_pct", label: "Comisión", pct: true },
-  { clave: "dia_vencimiento", label: "Vence el día" },
-  { clave: "mora_pct_diario", label: "Mora por día", pct: true },
-  { clave: "prorrateo_pct", label: "Parte de los servicios", pct: true },
-];
+import { Aviso, Boton, Card, Cargando, Panel } from "@/components/ui";
+import { enviar, useData } from "@/lib/useData";
 
 export default function Ajustes() {
   const { data, error, cargando, recargar } = useData();
   const { yaInstalada } = useInstalable();
 
-  // El borrador solo existe mientras editás: espejar la respuesta de SWR en
-  // estado te borraría lo que estás tipeando en cuanto revalida.
-  const [borrador, setBorrador] = useState<Condiciones | null>(null);
-  const [err, setErr] = useState("");
-  const [guardando, setGuardando] = useState(false);
   const [confirmandoPapelera, setConfirmandoPapelera] = useState(false);
+  const [borrandoCuenta, setBorrandoCuenta] = useState(false);
+  const [ocupado, setOcupado] = useState(false);
+  const [errorCuenta, setErrorCuenta] = useState("");
 
   if (error) {
     return (
@@ -54,9 +33,6 @@ export default function Ajustes() {
     );
   }
 
-  const cond = borrador ?? aTexto(data.condiciones);
-  const conAlquileres = usaAlquileres(data);
-  const tieneContratos = data.contratos.some((c) => !c.deleted_at);
 
   const borrados = [
     ...data.propiedades, ...data.contratos, ...data.cobros, ...data.gastos, ...data.alquileres,
@@ -64,29 +40,16 @@ export default function Ajustes() {
     ...data.divGastos, ...data.divCierres,
   ].filter((x) => x.deleted_at).length;
 
-  async function cambiarAlquileres(si: boolean) {
-    const r = await enviar("/api/config", "POST", { alquileres: si ? "si" : "no" });
-    if (!r.ok) return avisar(r.error);
-    await recargar();
-  }
-
-  async function guardarCondiciones() {
-    const valores = Object.fromEntries(CAMPOS.map(({ clave }) => [clave, aNumero(cond[clave])]));
-    if (Object.values(valores).some((v) => !Number.isFinite(v) || v < 0)) {
-      return setErr("Revisá los números.");
+  async function eliminarCuenta() {
+    setOcupado(true);
+    setErrorCuenta("");
+    const r = await enviar("/api/cuenta", "DELETE");
+    if (!r.ok) {
+      setOcupado(false);
+      return setErrorCuenta(r.error);
     }
-    setErr("");
-    setGuardando(true);
-    const r = await enviar(
-      "/api/config",
-      "POST",
-      Object.fromEntries(Object.entries(valores).map(([k, v]) => [`def_${k}`, String(v)]))
-    );
-    setGuardando(false);
-    if (!r.ok) return setErr(r.error);
-    setBorrador(null);
-    await recargar();
-    avisar("Guardado");
+    // Recarga completa: no queda nada de la cuenta en memoria.
+    window.location.replace("/login");
   }
 
   async function vaciarPapelera() {
@@ -109,53 +72,6 @@ export default function Ajustes() {
           email={data.sesion.email}
           recargar={recargar}
         />
-
-        <Card titulo="Alquileres">
-          <div className="px-4 py-3 sm:px-5">
-            <Interruptor
-              activo={conAlquileres}
-              onCambio={cambiarAlquileres}
-              disabled={tieneContratos}
-              detalle={tieneContratos ? "Tenés contratos cargados." : undefined}
-            >
-              Tengo propiedades en alquiler
-            </Interruptor>
-          </div>
-          {conAlquileres && (
-            <>
-              <div className="border-t border-linea px-4 pb-1 pt-3 sm:px-5">
-                <p className="text-sm font-medium">Con qué arranca un contrato nuevo</p>
-                <p className="text-xs text-tenue">No cambia los contratos cargados.</p>
-              </div>
-              <div className="grid grid-cols-2 gap-3 px-4 py-3 sm:grid-cols-3 sm:px-5">
-                {CAMPOS.map(({ clave, label, pct }) => (
-                  <Campo key={clave} label={label}>
-                    {pct ? (
-                      <InputPct value={cond[clave]} onChange={(e) => setBorrador({ ...cond, [clave]: e.target.value })} />
-                    ) : (
-                      <Input
-                        inputMode="numeric"
-                        value={cond[clave]}
-                        onChange={(e) => setBorrador({ ...cond, [clave]: e.target.value.replace(/\D/g, "") })}
-                      />
-                    )}
-                  </Campo>
-                ))}
-              </div>
-              <div className="flex flex-col gap-2 border-t border-borde px-4 py-3 sm:px-5">
-                <Aviso tipo="error">{err}</Aviso>
-                <div className="flex gap-2">
-                  <Boton onClick={guardarCondiciones} disabled={guardando || !borrador} className="flex-1 sm:flex-none">
-                    {guardando ? "Guardando…" : "Guardar"}
-                  </Boton>
-                  <Boton variante="secundario" onClick={() => setBorrador(aTexto({ ...CONDICIONES_FABRICA }))}>
-                    Valores de fábrica
-                  </Boton>
-                </div>
-              </div>
-            </>
-          )}
-        </Card>
 
         {!yaInstalada && (
           <div id="instalar" className="scroll-mt-20">
@@ -190,10 +106,45 @@ export default function Ajustes() {
           </div>
         </Card>
 
-        <Boton variante="secundario" onClick={salir} className="self-center">
-          Cerrar sesión
-        </Boton>
+        <div className="flex flex-col items-center gap-1 pt-2">
+          <Boton variante="secundario" onClick={salir}>
+            Cerrar sesión
+          </Boton>
+          <Boton variante="peligro" tamano="sm" onClick={() => setBorrandoCuenta(true)}>
+            Eliminar mi cuenta
+          </Boton>
+        </div>
       </div>
+
+      {borrandoCuenta && (
+        <Panel
+          abierto
+          cerrar={() => !ocupado && setBorrandoCuenta(false)}
+          titulo="¿Eliminar tu cuenta?"
+          pie={
+            <div className="flex flex-col gap-2">
+              {errorCuenta && <Aviso tipo="error">{errorCuenta}</Aviso>}
+              <div className="flex gap-2">
+                <Boton variante="secundario" onClick={() => setBorrandoCuenta(false)} disabled={ocupado}>
+                  Cancelar
+                </Boton>
+                <Boton
+                  className="flex-1 !bg-peligro !text-white !shadow-none"
+                  onClick={eliminarCuenta}
+                  disabled={ocupado}
+                >
+                  {ocupado ? "Eliminando…" : "Sí, eliminar todo"}
+                </Boton>
+              </div>
+            </div>
+          }
+        >
+          <p className="text-sm leading-relaxed text-suave">
+            Se borran tu cuenta y todo lo que cargaste: ingresos, gastos, ahorros, división y
+            alquileres. <span className="font-semibold text-tinta">No se puede deshacer.</span>
+          </p>
+        </Panel>
+      )}
     </Shell>
   );
 }

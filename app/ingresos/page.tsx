@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Asistente } from "@/components/Asistente";
 import { BurbujaEmoji, Emoji } from "@/components/Emoji";
 import { FormIngreso } from "@/components/FormIngreso";
 import { IconoFlecha, IconoMas } from "@/components/iconos";
@@ -13,7 +14,8 @@ import { Aviso, Boton, Card, Cargando, Vacio } from "@/components/ui";
 import { emojiDe } from "@/lib/emoji";
 import { ID_ALQUILERES } from "@/lib/finanzas";
 import { enMoneda } from "@/lib/format";
-import { usaAlquileres } from "@/lib/useData";
+import { enviar, usaAlquileres } from "@/lib/useData";
+import { avisar } from "@/components/Toast";
 import { useFinanzas } from "@/lib/useFinanzas";
 
 // Todo lo que entra, fuente por fuente. Alquileres figura acá porque es un
@@ -67,6 +69,7 @@ export default function Ingresos() {
               <Monto valor={resumen.ahorroSugerido} />
             </span>
           </p>
+          <Asistente modo="ingreso" className="mt-4 [&>*]:flex-1 sm:[&>*]:flex-none" />
         </section>
 
         <Card>
@@ -171,6 +174,17 @@ export default function Ingresos() {
           recargar={recargar}
           // Recién creado, lo natural es cargarle el primer cobro.
           alCrear={(id) => router.push(`/ingresos/${id}?mes=${mes}&cobro=1`)}
+          ofrecerAlquileres={
+            hayAlquileres
+              ? undefined
+              : async () => {
+                  const r = await enviar("/api/config", "POST", { alquileres: "si" });
+                  if (!r.ok) return avisar(r.error);
+                  setNuevo(false);
+                  void recargar();
+                  router.push("/alquileres/contratos");
+                }
+          }
         />
       )}
     </Shell>

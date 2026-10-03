@@ -34,6 +34,8 @@ const TIPOS_ARCHIVO = ["application/pdf", "image/jpeg", "image/png", "image/webp
 
 const pedidoSchema = z.object({
   texto: z.string().trim().max(2000).optional(),
+  /** Desde qué pantalla se dictó: en Ingresos todo es un cobro. */
+  pantalla: z.enum(["libre", "gasto", "compartido", "boleta", "ingreso"]).optional(),
   archivo: z
     .object({
       tipo: z.enum(TIPOS_ARCHIVO),
@@ -47,9 +49,9 @@ const fecha = z.string().nullable().describe("YYYY-MM-DD o null si no se sabe");
 /** Lo que devuelve el modelo. Todo nullable: mejor un campo vacío que inventado. */
 const interpretacionSchema = z.object({
   destino: z
-    .enum(["gasto", "compartido", "boleta", "cobro_ingreso"])
+    .enum(["gasto", "compartido", "boleta", "cobro_ingreso", "ahorro"])
     .describe(
-      "gasto: gasto personal. compartido: gasto a dividir con la pareja. boleta: boleta de una propiedad alquilada que se reparte entre inquilinos. cobro_ingreso: plata que entró de una fuente de ingreso."
+      "gasto: gasto personal. compartido: gasto a dividir con la pareja. boleta: boleta de una propiedad alquilada que se reparte entre inquilinos. cobro_ingreso: plata que entró (sueldo, honorarios, un pago). ahorro: plata que la persona apartó para ahorrar (plazo fijo, dólares, FCI)."
     ),
   monto: z.number().nullable().describe("Importe en número, sin separadores. En facturas, el total a pagar."),
   descripcion: z.string().describe("1 a 4 palabras, como la escribiría la persona: 'Luz', 'Agua', 'Super del finde'. Sin razón social ni número de factura."),
@@ -61,6 +63,11 @@ const interpretacionSchema = z.object({
   mi_pct: z.number().nullable().describe("Solo compartido: qué % es de la persona (0-100). null si no lo dijo."),
   tipo_boleta: z.enum(TIPOS_GASTO).nullable().describe("Solo boleta."),
   ingreso: z.string().nullable().describe("Solo cobro_ingreso: exactamente uno de los nombres de ingreso dados, o null."),
+  nombre_ingreso: z
+    .string()
+    .nullable()
+    .describe("Solo cobro_ingreso: cómo lo nombró la persona, 1 a 3 palabras con mayúscula inicial ('Sueldo', 'Consultoría'), aunque no esté en la lista. null si no lo dijo."),
+  moneda: z.enum(["ARS", "USD"]).nullable().describe("La moneda del monto: USD si dijo dólares, verdes, USD o US$. Si no, ARS."),
   duda: z
     .string()
     .nullable()
@@ -75,6 +82,8 @@ Reglas:
 - Montos en formato argentino: "40 mil" = 40000, "85 lucas" = 85000, "1,5 palos" = 1500000, "$ 17.872,66" = 17872.66.
 - En facturas, el monto es el TOTAL A PAGAR del período. Si hay saldo anterior, recargo o dos vencimientos, usá el total del primer vencimiento y explicalo en "duda".
 - "compartido", "a medias", "con [nombre de la pareja]" → destino compartido. "lo pagó [pareja]" → pago pareja.
+- "cobré", "me pagaron", "me depositaron", "entró el sueldo" → destino cobro_ingreso. El ingreso es el de la lista que corresponda aunque lo diga distinto ("el sueldo" → "Sueldo"); si no hay uno que corresponda, ingreso = null y nombre_ingreso con cómo lo llamó.
+- "ahorré", "aparté", "puse en un plazo fijo", "compré dólares para ahorrar" → destino ahorro; la descripcion dice dónde ("Plazo fijo", "Dólares").
 - Si no dice quién pagó, pago = "yo". Si no dice qué parte es suya, mi_pct = null: la app usa el porcentaje de siempre. Ninguna de las dos cosas es una duda.
 - Sin fecha, usá hoy.
 - En facturas de servicios: descripcion = el servicio ("Luz", "Gas", "Agua", "Internet"); periodo = el último mes facturado, en YYYY-MM.
@@ -93,7 +102,7 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Pedido inválido" }, { status: 400 });
   }
-  const { texto, archivo } = parsed.data;
+  const { texto, archivo, pantalla } = parsed.data;
   if (!texto && !archivo) {
     return NextResponse.json({ error: "Decí o subí algo para cargar." }, { status: 400 });
   }
@@ -123,6 +132,7 @@ export async function POST(req: Request) {
       : "La persona no tiene propiedades en alquiler: nunca uses destino boleta; una factura de servicios es un gasto.",
     `Categorías: ${categorias.length ? categorias.join(", ") : "(ninguna todavía)"}.`,
     `Ingresos: ${ingresos.length ? ingresos.join(", ") : "(ninguno todavía)"}.`,
+    pantalla === "ingreso" ? "Está en la pantalla de Ingresos: es un cobro de ingreso." : "",
     texto ? `Lo que dijo: "${texto}"` : "Leé la factura adjunta.",
   ].join("\n");
 
@@ -169,8 +179,13 @@ export async function POST(req: Request) {
 
     // Solo nombres que existen: si el modelo se tomó una licencia, se descarta.
     if (datos.categoria && !categorias.includes(datos.categoria)) datos.categoria = null;
+    // El ingreso, escrito exactamente como en la lista: si el modelo cambió una
+    // mayúscula se corrige, y si no existe queda para elegir o crear.
     const nombresIngreso = (ings.data ?? []).map((i) => i.nombre);
-    if (datos.ingreso && !nombresIngreso.includes(datos.ingreso)) datos.ingreso = null;
+    const mismo = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+    const pedido = datos.ingreso ?? datos.nombre_ingreso;
+    datos.ingreso = (pedido && nombresIngreso.find((n) => mismo(n, pedido))) || null;
+    if (datos.nombre_ingreso) datos.nombre_ingreso = datos.nombre_ingreso.trim().slice(0, 60) || null;
 
     return NextResponse.json({ ok: true, datos });
   } catch (e) {

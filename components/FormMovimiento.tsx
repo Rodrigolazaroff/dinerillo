@@ -6,7 +6,7 @@ import { avisar } from "@/components/Toast";
 import { Aviso, Boton, Campo, Input, InputPct, InputPlata, Panel, Segmentado } from "@/components/ui";
 import { aCampo, aNumero, hoyISO, periodoActual, plata, redondear } from "@/lib/format";
 import type { Categoria, DivGasto, MiGasto, QuienPago } from "@/lib/types";
-import { enviar } from "@/lib/useData";
+import { actualizarLocal, conFila, enviar, sinFila } from "@/lib/useData";
 
 // Un solo formulario para los dos tipos de gasto: el tuyo y el compartido.
 // Lo que cambia en el compartido es quién pagó y qué parte es tuya. Uno nuevo
@@ -123,7 +123,19 @@ export function FormMovimiento({
     } catch {
       // no pasa nada
     }
-    await recargar();
+    // En pantalla ya; la lectura completa viene atrás.
+    const id = gasto?.id ?? r.id;
+    if (id) {
+      const fila = {
+        id, created_at: gasto?.created_at ?? new Date().toISOString(), deleted_at: "",
+        ...cuerpo, pago, mi_pct: compartido ? redondear(pct, 2) : 100,
+      };
+      void actualizarLocal((d) =>
+        compartido ? { ...d, divGastos: conFila(d.divGastos, fila) } : { ...d, misGastos: conFila(d.misGastos, fila) }
+      );
+    } else {
+      void recargar();
+    }
     cerrar();
     avisar(gasto ? "Cambios guardados" : compartido ? "Gasto compartido cargado" : "Gasto cargado");
   }
@@ -134,7 +146,11 @@ export function FormMovimiento({
     const r = await enviar(url, "DELETE", { id: gasto.id });
     setGuardando(false);
     if (!r.ok) return setError(r.error);
-    await recargar();
+    void actualizarLocal((d) =>
+      compartido
+        ? { ...d, divGastos: sinFila(d.divGastos, gasto.id) }
+        : { ...d, misGastos: sinFila(d.misGastos, gasto.id) }
+    );
     cerrar();
     avisar("Gasto borrado", async () => {
       await enviar(url, "PATCH", { id: gasto.id, restaurar: true });

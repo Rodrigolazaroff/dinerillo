@@ -34,11 +34,13 @@ export default async function proxy(req: NextRequest) {
     }
   );
 
-  // getUser valida el token contra Supabase; getSession solo leeria la cookie.
-  const { data } = await supabase.auth.getUser();
+  // getClaims verifica la firma del token acá mismo (y lo renueva si venció):
+  // no hace un viaje a Supabase en cada navegación, como getUser. getSession
+  // solo leería la cookie sin verificar nada.
+  const { data } = await supabase.auth.getClaims();
   const { pathname } = req.nextUrl;
 
-  if (data.user || PUBLICAS.some((p) => pathname.startsWith(p))) return res;
+  if (data?.claims || PUBLICAS.some((p) => pathname.startsWith(p))) return res;
 
   if (pathname.startsWith("/api/")) {
     return NextResponse.json({ error: "Sesión vencida. Volvé a entrar." }, { status: 401 });

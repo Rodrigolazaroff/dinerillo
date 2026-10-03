@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { falla } from "@/lib/crud";
 import { exigirEditor } from "@/lib/guard";
-import { TABLAS } from "@/lib/repo";
+import { TABLAS, tablaFaltante } from "@/lib/repo";
 import { supabaseServer } from "@/lib/supabase/server";
 
 /**
@@ -17,12 +17,13 @@ export async function DELETE() {
   const orden = [
     TABLAS.cobros, TABLAS.boletas, TABLAS.alquileres, TABLAS.contratos, TABLAS.propiedades,
     TABLAS.ingresoCobros, TABLAS.ingresos, TABLAS.misGastos, TABLAS.divGastos,
-    TABLAS.divCierres, TABLAS.categorias,
+    TABLAS.divCierres, TABLAS.categorias, TABLAS.ahorros,
   ];
   let borrados = 0;
   for (const tabla of orden) {
     const { data, error } = await supabase
       .from(tabla).delete().not("deleted_at", "is", null).select("id");
+    if (error && tablaFaltante(error)) continue;
     if (error) return falla(error);
     borrados += data?.length ?? 0;
   }

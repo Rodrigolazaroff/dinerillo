@@ -1,9 +1,9 @@
 "use client";
 
-import useSWR from "swr";
+import useSWR, { mutate } from "swr";
 import type { ContratoCalculado, Resumen } from "./calc";
 import type {
-  Alquiler, Categoria, Cobro, CondicionesDefault, Config, Contrato, DivCierre, DivGasto, Gasto,
+  Ahorro, Alquiler, Categoria, Cobro, CondicionesDefault, Config, Contrato, DivCierre, DivGasto, Gasto,
   Ingreso, IngresoCobro, MiGasto, Propiedad, Rol,
 } from "./types";
 
@@ -20,6 +20,7 @@ export interface DataResponse {
   misGastos: MiGasto[];
   divGastos: DivGasto[];
   divCierres: DivCierre[];
+  ahorros: Ahorro[];
   condiciones: CondicionesDefault;
   calculados: ContratoCalculado[];
   resumen: Resumen;
@@ -78,7 +79,25 @@ export function usaDivision(d: DataResponse): boolean {
   return d.config?.divide !== "no" || (d.divGastos ?? []).some((g) => !g.deleted_at);
 }
 
-export type Resultado = { ok: true } | { ok: false; error: string };
+export type Resultado = { ok: true; id?: string } | { ok: false; error: string };
+
+/**
+ * Pone un cambio en pantalla ya, sin esperar a la red: el número del mes y la
+ * lista se actualizan en el momento y atrás se vuelve a leer todo, por las
+ * dudas. La gente no quiere esperar a que un "Cargar" piense.
+ */
+export function actualizarLocal(cambio: (d: DataResponse) => DataResponse) {
+  return mutate<DataResponse>("/api/data", (d) => (d ? cambio(d) : d), { revalidate: true });
+}
+
+/** Una fila nueva o editada, en su lista; o marcada como borrada. */
+export function conFila<T extends { id: string }>(lista: T[], fila: T): T[] {
+  return lista.some((x) => x.id === fila.id) ? lista.map((x) => (x.id === fila.id ? fila : x)) : [...lista, fila];
+}
+export function sinFila<T extends { id: string; deleted_at: string }>(lista: T[], id: string): T[] {
+  const ahora = new Date().toISOString();
+  return lista.map((x) => (x.id === id ? { ...x, deleted_at: ahora } : x));
+}
 
 /** Escritura: manda, devuelve el error listo para mostrar y nada mas. */
 export async function enviar(
@@ -94,7 +113,7 @@ export async function enviar(
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data?.error ?? "Algo salió mal" };
-    return { ok: true };
+    return { ok: true, id: typeof data?.id === "string" ? data.id : undefined };
   } catch {
     return { ok: false, error: "No hay conexión. Probá de nuevo." };
   }

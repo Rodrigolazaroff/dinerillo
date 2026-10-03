@@ -31,6 +31,7 @@ export function FormIngreso({
   cantidad,
   recargar,
   alCrear,
+  ofrecerAlquileres,
 }: {
   abierto: boolean;
   cerrar: () => void;
@@ -38,6 +39,8 @@ export function FormIngreso({
   cantidad: number;
   recargar: () => Promise<unknown>;
   alCrear?: (id: string) => void;
+  /** Si no usa Alquileres, se lo ofrece acá: es un ingreso más, con contratos. */
+  ofrecerAlquileres?: () => void;
 }) {
   const [nombre, setNombre] = useState(ingreso?.nombre ?? "");
   const [moneda, setMoneda] = useState(ingreso?.moneda ?? "ARS");
@@ -134,6 +137,19 @@ export function FormIngreso({
         <Campo label="Nota (opcional)">
           <Input value={nota} onChange={(e) => setNota(e.target.value)} maxLength={500} />
         </Campo>
+        {!ingreso && ofrecerAlquileres && (
+          <button
+            type="button"
+            onClick={ofrecerAlquileres}
+            className="flex min-h-12 items-center gap-3 rounded-xl bg-celeste-claro px-3 text-left text-sm transition-colors hover:bg-celeste/50"
+          >
+            <Emoji nombre="llave" tamano="md" />
+            <span className="flex-1">
+              <span className="font-semibold">¿Alquilás propiedades?</span>
+              <span className="block text-xs text-suave">Contratos, aumentos y cobros</span>
+            </span>
+          </button>
+        )}
       </form>
       {eligiendo && (
         <ElegirEmoji
