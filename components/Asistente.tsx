@@ -81,7 +81,8 @@ const aBase64 = (blob: Blob) =>
 /** Una foto del celular pesa varios MB: se achica a JPEG antes de mandarla. */
 async function prepararArchivo(f: File): Promise<{ tipo: string; base64: string }> {
   if (f.type === "application/pdf") {
-    if (f.size > 3_000_000) throw new Error("El PDF es muy pesado. Probá con uno de menos de 3 MB.");
+    // Un PDF largo son muchos tokens: una factura entra holgada en 2 MB.
+    if (f.size > 2_000_000) throw new Error("El PDF es muy pesado. Probá con uno de menos de 2 MB o con una foto.");
     return { tipo: f.type, base64: await aBase64(f) };
   }
   if (!f.type.startsWith("image/")) throw new Error("Subí un PDF o una foto.");

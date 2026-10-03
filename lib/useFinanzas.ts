@@ -26,6 +26,7 @@ export function useFinanzas() {
             divGastos: data.divGastos ?? [],
             divCierres: data.divCierres ?? [],
             ahorros: data.ahorros ?? [],
+            gastosFijos: data.gastosFijos ?? [],
             calculados: data.calculados ?? [],
             config: data.config ?? {},
           }

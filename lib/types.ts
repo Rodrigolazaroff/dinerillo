@@ -176,6 +176,8 @@ export interface MiGasto {
   monto: number;
   categoria_id: string;      // vacío = sin categoría
   nota: string;
+  /** El gasto fijo del que salió, si se cargó desde uno. */
+  fijo_id: string;
   created_at: string;
   deleted_at: string;
 }
@@ -193,6 +195,25 @@ export interface DivGasto {
   mi_pct: number;            // 50 = la mitad es tuya
   categoria_id: string;
   nota: string;
+  fijo_id: string;
+  created_at: string;
+  deleted_at: string;
+}
+
+/**
+ * Lo que se paga todos los meses. Los de monto fijo se cargan solos el día
+ * que tocan; los que varían piden confirmar el monto.
+ */
+export interface GastoFijo {
+  id: string;
+  descripcion: string;
+  monto: number;             // el de siempre, o el estimado si varía
+  categoria_id: string;
+  dia: number;               // 1..31
+  compartido: boolean;
+  pago: QuienPago;
+  mi_pct: number;
+  automatico: boolean;
   created_at: string;
   deleted_at: string;
 }

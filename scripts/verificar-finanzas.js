@@ -125,5 +125,42 @@ console.log("\n=== lo que te quedó: ahorrado y disponible ===");
   chequeo("sin tabla de ahorros, nada ahorrado", f.resumenDelMes({ ...e, ahorros: undefined }, "2026-10").ahorrado, 0);
 }
 
+console.log("\n=== gastos fijos ===");
+{
+  const fijo = (id, x) => ({ ...base, id, descripcion: id, monto: 10000, categoria_id: "", dia: 5, compartido: false, pago: "yo", mi_pct: 100, automatico: true, ...x });
+  const gasto = (id, periodo, monto, x) => ({ ...base, id, fecha: `${periodo}-05`, periodo, descripcion: id, monto, categoria_id: "", fijo_id: "", ...x });
+  const e = {
+    ...vacio,
+    gastosFijos: [
+      fijo("netflix"),
+      fijo("luz", { automatico: false, dia: 20 }),
+      fijo("expensas", { dia: 31 }),
+    ],
+    misGastos: [
+      gasto("n-oct", "2026-10", 10000, { fijo_id: "netflix" }),
+      gasto("l-jul", "2026-07", 30000, { fijo_id: "luz" }),
+      gasto("l-ago", "2026-08", 40000, { fijo_id: "luz" }),
+      gasto("l-sep", "2026-09", 50000, { fijo_id: "luz" }),
+    ],
+  };
+  const mes = f.fijosDelMes(e, "2026-10");
+  chequeo("netflix ya está cargado en octubre", mes.find((x) => x.fijo.id === "netflix").cargado, true);
+  chequeo("la luz se estima con el promedio de 3 meses", mes.find((x) => x.fijo.id === "luz").estimado, 40000);
+  chequeo("el día 31 en febrero es el 28", f.fijosDelMes(e, "2027-02").find((x) => x.fijo.id === "expensas").dia, 28);
+  chequeo("el 10/10 no se carga solo lo del 31", f.fijosParaCargarSolos(e, "2026-10-10").map((x) => x.fijo.id), []);
+  chequeo("el 31/10 se cargan solas las expensas", f.fijosParaCargarSolos(e, "2026-10-31").map((x) => x.fijo.id), ["expensas"]);
+  chequeo("la luz pide confirmar cerca del 20", f.avisos(e, "2026-10", "2026-10-18").some((a) => a.id === "fijo-luz-2026-10"), true);
+
+  const historial = {
+    ...vacio,
+    misGastos: [
+      gasto("Spotify", "2026-08", 4000), gasto("Spotify ", "2026-09", 4200),
+      gasto("Regalo", "2026-09", 30000),
+      gasto("Super", "2026-08", 50000), gasto("super", "2026-09", 150000),
+    ],
+  };
+  chequeo("sugiere lo que se repite por lo mismo", f.sugerirFijos(historial, "2026-10-03").map((s) => s.descripcion), ["Spotify "]);
+}
+
 console.log(fallas ? `\n${fallas} FALLAS` : "\nTODO OK: las cuentas del mes dan lo que tienen que dar.");
 process.exit(fallas ? 1 : 0);

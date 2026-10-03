@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { AjustesFinanzas } from "@/components/AjustesFinanzas";
 import { salir } from "@/components/MenuPerfil";
@@ -113,6 +114,15 @@ export default function Ajustes() {
           <Boton variante="peligro" tamano="sm" onClick={() => setBorrandoCuenta(true)}>
             Eliminar mi cuenta
           </Boton>
+          <p className="mt-2 text-xs text-tenue">
+            <Link href="/terminos" className="underline underline-offset-2">
+              Términos
+            </Link>
+            {" · "}
+            <Link href="/privacidad" className="underline underline-offset-2">
+              Privacidad
+            </Link>
+          </p>
         </div>
       </div>
 

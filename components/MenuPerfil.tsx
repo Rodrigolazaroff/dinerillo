@@ -100,6 +100,14 @@ export function MenuPerfil({ data }: { data: DataResponse }) {
               <IconoAjustes className="h-5 w-5 text-suave" />
               Ajustes
             </Link>
+            {data.admin && (
+              <Link href="/admin" role="menuitem" className={item} onClick={() => setAbierto(false)}>
+                <svg viewBox="0 0 20 20" className="h-5 w-5 text-suave" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M4 16V9M10 16V4M16 16v-5" />
+                </svg>
+                Administración
+              </Link>
+            )}
             {(sePuedeInstalar || esIOS) && (
               <button
                 type="button"

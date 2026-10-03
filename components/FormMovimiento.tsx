@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { ElegirCategoria } from "@/components/Categorias";
 import { avisar } from "@/components/Toast";
-import { Aviso, Boton, Campo, Input, InputPct, InputPlata, Panel, Segmentado } from "@/components/ui";
+import { Aviso, Boton, Campo, Input, InputPct, InputPlata, Interruptor, Panel, Segmentado } from "@/components/ui";
 import { aCampo, aNumero, hoyISO, periodoActual, plata, redondear } from "@/lib/format";
 import type { Categoria, DivGasto, MiGasto, QuienPago } from "@/lib/types";
 import { actualizarLocal, conFila, enviar, sinFila } from "@/lib/useData";
@@ -51,7 +51,7 @@ export function FormMovimiento({
   cerrar: () => void;
   gasto?: MiGasto | DivGasto;
   /** Precarga de un gasto nuevo (la carga asistida). */
-  inicial?: Partial<Pick<DivGasto, "monto" | "descripcion" | "categoria_id" | "fecha" | "pago" | "mi_pct" | "nota">>;
+  inicial?: Partial<Pick<DivGasto, "monto" | "descripcion" | "categoria_id" | "fecha" | "pago" | "mi_pct" | "nota" | "fijo_id">>;
   /** Algo para revisar antes de guardar, arriba de todo. */
   aviso?: string;
   mes: string;
@@ -87,6 +87,9 @@ export function FormMovimiento({
   const [miPct, setMiPct] = useState(String(div?.mi_pct ?? inicial?.mi_pct ?? miPctDefault));
   const [nota, setNota] = useState(gasto?.nota ?? inicial?.nota ?? "");
   const [conNota, setConNota] = useState(Boolean(gasto?.nota || inicial?.nota));
+  // "Todos los meses": además del gasto, queda como fijo y se carga solo.
+  const [repetir, setRepetir] = useState(false);
+  const fijoId = gasto?.fijo_id || inicial?.fijo_id || "";
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
 
@@ -104,6 +107,24 @@ export function FormMovimiento({
     if (compartido && !pctValido) return setError("Tu parte va de 0 a 100%.");
     setError("");
     setGuardando(true);
+    let nuevoFijo = "";
+    if (repetir && !gasto && !fijoId) {
+      const f = await enviar("/api/gastos-fijos", "POST", {
+        descripcion: descripcion.trim(),
+        monto: redondear(n, 2),
+        categoria_id: categoria,
+        dia: Number(fecha.slice(8, 10)) || 1,
+        compartido,
+        pago,
+        mi_pct: compartido ? redondear(pct, 2) : 100,
+        automatico: true,
+      });
+      if (!f.ok) {
+        setGuardando(false);
+        return setError(f.error);
+      }
+      nuevoFijo = f.id ?? "";
+    }
     const cuerpo = {
       fecha,
       periodo: fecha.slice(0, 7),
@@ -111,6 +132,7 @@ export function FormMovimiento({
       monto: redondear(n, 2),
       categoria_id: categoria,
       nota: nota.trim(),
+      fijo_id: fijoId || nuevoFijo,
       ...(compartido ? { pago, mi_pct: redondear(pct, 2) } : {}),
     };
     const r = gasto
@@ -136,8 +158,11 @@ export function FormMovimiento({
     } else {
       void recargar();
     }
+    if (nuevoFijo) void recargar();
     cerrar();
-    avisar(gasto ? "Cambios guardados" : compartido ? "Gasto compartido cargado" : "Gasto cargado");
+    avisar(
+      gasto ? "Cambios guardados" : nuevoFijo ? "Cargado, y se repite todos los meses" : compartido ? "Gasto compartido cargado" : "Gasto cargado"
+    );
   }
 
   async function borrar() {
@@ -273,6 +298,12 @@ export function FormMovimiento({
           <button type="button" onClick={() => setConNota(true)} className="self-start text-xs font-medium text-acento">
             + Nota
           </button>
+        )}
+
+        {!gasto && !fijoId && (
+          <Interruptor activo={repetir} onCambio={setRepetir} detalle="Se carga solo cada mes, el mismo día.">
+            Todos los meses
+          </Interruptor>
         )}
       </form>
     </Panel>

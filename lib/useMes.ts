@@ -68,3 +68,20 @@ export function usarParametro(nombre: string, valor = "1"): boolean {
   ultimo = { clave, cuando: Date.now() };
   return true;
 }
+
+/** Como `usarParametro`, pero devuelve el valor (?fijo=ID): "" si no vino. */
+let ultimoValor: { clave: string; valor: string; cuando: number } | null = null;
+
+export function leerParametro(nombre: string): string {
+  if (typeof window === "undefined") return "";
+  const url = new URL(window.location.href);
+  const clave = `${url.pathname}:${nombre}`;
+  const valor = url.searchParams.get(nombre) ?? "";
+  if (!valor) {
+    return ultimoValor?.clave === clave && Date.now() - ultimoValor.cuando < 1000 ? ultimoValor.valor : "";
+  }
+  url.searchParams.delete(nombre);
+  window.history.replaceState(null, "", url.pathname + url.search);
+  ultimoValor = { clave, valor, cuando: Date.now() };
+  return valor;
+}

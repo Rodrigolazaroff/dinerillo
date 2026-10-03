@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ulid } from "ulid";
 import { z } from "zod";
+import { registrarError } from "./errores";
 import { exigirEditor } from "./guard";
 import type { Tabla } from "./repo";
 import { primerError } from "./schemas";
@@ -121,5 +122,6 @@ export function falla(e: { code?: string; message: string }) {
     : "No pude guardar. Probá de nuevo.";
   // Un dato que la base no acepta es culpa del pedido (400), no del server.
   const status = e.code === "42501" ? 403 : e.code?.startsWith("23") ? 400 : 500;
+  if (status === 500) registrarError(`Base de datos: ${e.message}`, e.code ?? "");
   return NextResponse.json({ error: msg }, { status });
 }

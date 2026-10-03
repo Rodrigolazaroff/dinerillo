@@ -1,7 +1,7 @@
 import type { ContratoCalculado } from "./calc";
 import { emojiDe } from "./emoji";
 import { diasEntre, redondear, sumarMeses, ultimoDiaDelMes } from "./format";
-import type { Ahorro, Categoria, Config, DivCierre, DivGasto, Ingreso, IngresoCobro, MiGasto } from "./types";
+import type { Ahorro, Categoria, Config, DivCierre, DivGasto, GastoFijo, Ingreso, IngresoCobro, MiGasto } from "./types";
 
 // Las cuentas del mes, puras como las de calc.ts: mismas entradas, misma
 // salida. El cliente las corre con lo que ya tiene en memoria, así cambiar de
@@ -64,6 +64,7 @@ export interface Entradas {
   divCierres: DivCierre[];
   /** Puede faltar si la base todavía no tiene la tabla. */
   ahorros?: Ahorro[];
+  gastosFijos?: GastoFijo[];
   calculados: ContratoCalculado[];
   config: Config;
 }
@@ -284,6 +285,99 @@ export function serie(e: Entradas, hasta: string, meses = 12): MesSerie[] {
   });
 }
 
+// ── gastos fijos ────────────────────────────────────────────────────
+
+export interface FijoDelMes {
+  fijo: GastoFijo;
+  /** Ya hay un gasto de este fijo en el mes. */
+  cargado: boolean;
+  /** El día del mes en que toca, sin pasarse del último día. */
+  dia: number;
+  /**
+   * Lo que se espera. Si el monto varía (la luz), el promedio de los últimos
+   * tres meses que se cargó; si no, el de siempre.
+   */
+  estimado: number;
+}
+
+const delFijo = (e: Entradas, id: string) =>
+  [...vivos(e.misGastos), ...vivos(e.divGastos)].filter((g) => g.fijo_id === id);
+
+export function fijosDelMes(e: Entradas, periodo: string): FijoDelMes[] {
+  return vivos(e.gastosFijos ?? []).map((fijo) => {
+    const cargados = delFijo(e, fijo.id);
+    const previos = cargados
+      .filter((g) => g.periodo < periodo)
+      .sort((a, b) => b.periodo.localeCompare(a.periodo))
+      .slice(0, 3);
+    const estimado =
+      !fijo.automatico && previos.length
+        ? redondear(previos.reduce((s, g) => s + g.monto, 0) / previos.length, 0)
+        : fijo.monto;
+    return {
+      fijo,
+      cargado: cargados.some((g) => g.periodo === periodo),
+      dia: Math.min(fijo.dia, ultimoDiaDelMes(periodo)),
+      estimado,
+    };
+  });
+}
+
+/** Los de monto fijo que ya tocaron este mes y todavía no se cargaron. */
+export function fijosParaCargarSolos(e: Entradas, hoy: string): FijoDelMes[] {
+  const periodo = hoy.slice(0, 7);
+  const dia = Number(hoy.slice(8, 10));
+  return fijosDelMes(e, periodo).filter((f) => f.fijo.automatico && !f.cargado && f.dia <= dia);
+}
+
+export interface SugerenciaFijo {
+  descripcion: string;
+  monto: number;
+  categoria_id: string;
+  dia: number;
+  compartido: boolean;
+}
+
+const normalizar = (s: string) =>
+  s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z ]/g, "").trim();
+
+/**
+ * Lo que parece fijo y todavía no lo es: el mismo gasto en al menos dos de
+ * los últimos tres meses, por un monto parecido. Sin IA: es contar, gratis y
+ * sin mandar nada a ningún lado.
+ */
+export function sugerirFijos(e: Entradas, hoy: string): SugerenciaFijo[] {
+  const desde = sumarMeses(hoy.slice(0, 7), -3);
+  const yaFijos = new Set(vivos(e.gastosFijos ?? []).map((f) => normalizar(f.descripcion)));
+  const grupos = new Map<string, { g: MiGasto | DivGasto; compartido: boolean }[]>();
+  const sumar = (g: MiGasto | DivGasto, compartido: boolean) => {
+    if (g.fijo_id || g.periodo < desde) return;
+    const clave = normalizar(g.descripcion);
+    if (!clave || yaFijos.has(clave)) return;
+    grupos.set(clave, [...(grupos.get(clave) ?? []), { g, compartido }]);
+  };
+  vivos(e.misGastos).forEach((g) => sumar(g, false));
+  vivos(e.divGastos).forEach((g) => sumar(g, true));
+
+  const out: SugerenciaFijo[] = [];
+  for (const xs of grupos.values()) {
+    const meses = new Set(xs.map((x) => x.g.periodo));
+    if (meses.size < 2) continue;
+    const montos = xs.map((x) => x.g.monto).sort((a, b) => a - b);
+    const mediana = montos[Math.floor(montos.length / 2)];
+    if (montos.some((m) => Math.abs(m - mediana) > mediana * 0.3)) continue;
+    const ultimo = [...xs].sort((a, b) => b.g.fecha.localeCompare(a.g.fecha))[0];
+    out.push({
+      descripcion: ultimo.g.descripcion,
+      monto: ultimo.g.monto,
+      categoria_id: ultimo.g.categoria_id,
+      dia: Number(ultimo.g.fecha.slice(8, 10)) || 1,
+      compartido: ultimo.compartido,
+    });
+  }
+  return out.sort((a, b) => b.monto - a.monto).slice(0, 3);
+}
+
 // ── lo que vale la pena decirte ─────────────────────────────────────
 
 export type TonoAviso = "peligro" | "espera" | "acento" | "ok";
@@ -357,6 +451,20 @@ export function avisos(e: Entradas, periodo: string, hoy: string): Aviso[] {
           : `Le debés ${plataTexto(-d.saldo)} a ${prefs.pareja || "tu pareja"}${p < periodo ? ` de ${mesLargo(p)}` : ""}`,
       href: `/division?mes=${p}`,
     });
+  }
+
+  // Los fijos que varían (la luz): cuando se acerca el día, confirmar el monto.
+  const [, , diaHoy] = hoy.split("-").map(Number);
+  if (hoy.startsWith(periodo)) {
+    for (const f of fijosDelMes(e, periodo)) {
+      if (f.cargado || f.fijo.automatico || f.dia > diaHoy + 3) continue;
+      out.push({
+        id: `fijo-${f.fijo.id}-${periodo}`,
+        tono: "acento",
+        texto: `Confirmá ${f.fijo.descripcion} de ${mesLargo(periodo)} (≈ ${plataTexto(f.estimado)})`,
+        href: `/gastos?fijo=${f.fijo.id}`,
+      });
+    }
   }
 
   const orden: Record<TonoAviso, number> = { peligro: 0, espera: 1, acento: 2, ok: 3 };

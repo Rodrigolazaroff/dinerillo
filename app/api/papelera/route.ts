@@ -17,7 +17,7 @@ export async function DELETE() {
   const orden = [
     TABLAS.cobros, TABLAS.boletas, TABLAS.alquileres, TABLAS.contratos, TABLAS.propiedades,
     TABLAS.ingresoCobros, TABLAS.ingresos, TABLAS.misGastos, TABLAS.divGastos,
-    TABLAS.divCierres, TABLAS.categorias, TABLAS.ahorros,
+    TABLAS.divCierres, TABLAS.gastosFijos, TABLAS.categorias, TABLAS.ahorros,
   ];
   let borrados = 0;
   for (const tabla of orden) {

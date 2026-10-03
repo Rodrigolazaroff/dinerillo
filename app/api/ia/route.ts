@@ -3,6 +3,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { hoyISO } from "@/lib/format";
+import { registrarError } from "@/lib/errores";
 import { exigirEditor } from "@/lib/guard";
 import { TIPOS_GASTO } from "@/lib/schemas";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -17,7 +18,12 @@ import { supabaseServer } from "@/lib/supabase/server";
 // El más barato que lee PDFs y fotos: una factura sale ~US$0,003 y un dictado
 // ~US$0,001. La respuesta es un JSON chico, así que el tope de salida es bajo.
 const MODELO = "claude-haiku-4-5";
-const MAX_TOKENS_SALIDA = 800;
+const MAX_TOKENS_SALIDA = 500;
+
+// Topes de uso: por persona, para que nadie se coma la cuenta, y entre todos,
+// para que la factura de Anthropic tenga techo aunque se sumen muchas cuentas.
+const TOPE_POR_PERSONA = 30;
+const TOPE_DIARIO_TOTAL = 400;
 
 // Si Claude se traba, se corta a los 25 segundos y se reintenta una sola vez:
 // la pantalla también tiene su propio límite y vuelve a habilitar el botón.
@@ -107,8 +113,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Decí o subí algo para cargar." }, { status: 400 });
   }
 
-  // El contexto que necesita para elegir bien: las listas de la persona.
   const supabase = await supabaseServer();
+
+  // Antes de gastar: los topes del día. Si la tabla no existe todavía, sigue.
+  const desde = new Date(Date.now() - 86_400_000).toISOString();
+  const [propios, total] = await Promise.all([
+    supabase.from("ia_usos").select("id", { count: "exact", head: true }).gte("created_at", desde),
+    supabase.rpc("ia_usos_hoy_total"),
+  ]);
+  if ((propios.count ?? 0) >= TOPE_POR_PERSONA) {
+    return NextResponse.json(
+      { error: `Llegaste a las ${TOPE_POR_PERSONA} cargas asistidas de hoy. Mañana se renuevan; mientras, cargalo a mano.` },
+      { status: 429 }
+    );
+  }
+  if (typeof total.data === "number" && total.data >= TOPE_DIARIO_TOTAL) {
+    registrarError("Se llegó al tope diario total de la IA", `${total.data} usos`, "/api/ia");
+    return NextResponse.json({ error: "El asistente descansa por hoy. Cargalo a mano." }, { status: 503 });
+  }
+
+  // El contexto que necesita para elegir bien: las listas de la persona.
   const [cats, ings, ajustes, contratos] = await Promise.all([
     supabase.from("categorias").select("nombre").is("deleted_at", null),
     supabase.from("ingresos").select("nombre, moneda").is("deleted_at", null).is("archivado_at", null),
@@ -156,6 +180,13 @@ export async function POST(req: Request) {
       messages: [{ role: "user", content: contenido }],
     });
 
+    // Cada uso cuenta para el tope y para ver cuánto se gasta en /admin.
+    await supabase.from("ia_usos").insert({
+      tipo: archivo ? "archivo" : "texto",
+      tokens_entrada: respuesta.usage.input_tokens,
+      tokens_salida: respuesta.usage.output_tokens,
+    });
+
     if (respuesta.stop_reason === "max_tokens") {
       return NextResponse.json({ error: "No pude terminar de leerlo. Cargalo a mano." }, { status: 422 });
     }
@@ -196,6 +227,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Muchos pedidos seguidos. Esperá un momento." }, { status: 429 });
     }
     if (e instanceof Anthropic.AuthenticationError) {
+      registrarError("La clave de Anthropic no es válida", e.message, "/api/ia");
       return NextResponse.json({ error: "La clave de Anthropic no es válida." }, { status: 503 });
     }
     if (e instanceof Anthropic.BadRequestError) {
@@ -204,6 +236,7 @@ export async function POST(req: Request) {
     }
     if (e instanceof Anthropic.APIError) {
       console.error("[dinerillo/ia]", e.status, e.message);
+      registrarError(`Anthropic respondió ${e.status}`, e.message, "/api/ia");
       return NextResponse.json({ error: "El asistente no respondió. Probá de nuevo." }, { status: 502 });
     }
     throw e;

@@ -1,5 +1,5 @@
 import type {
-  Ahorro, Alquiler, Categoria, Cobro, CondicionesDefault, Config, Contrato, DivCierre, DivGasto, Gasto,
+  Ahorro, Alquiler, Categoria, GastoFijo, Cobro, CondicionesDefault, Config, Contrato, DivCierre, DivGasto, Gasto,
   Ingreso, IngresoCobro, MiGasto, Propiedad,
 } from "./types";
 import { CONDICIONES_FABRICA } from "./schemas";
@@ -23,6 +23,7 @@ export const TABLAS = {
   divGastos: "div_gastos",
   divCierres: "div_cierres",
   ahorros: "ahorros",
+  gastosFijos: "gastos_fijos",
 } as const;
 
 export type Tabla = (typeof TABLAS)[keyof typeof TABLAS];
@@ -132,6 +133,7 @@ const unMiGasto = (f: Fila): MiGasto => ({
   monto: num(f.monto),
   categoria_id: txt(f.categoria_id),
   nota: txt(f.nota),
+  fijo_id: txt(f.fijo_id),
 });
 
 const unDivGasto = (f: Fila): DivGasto => ({
@@ -158,6 +160,18 @@ const unAhorro = (f: Fila): Ahorro => ({
   nota: txt(f.nota),
 });
 
+const unGastoFijo = (f: Fila): GastoFijo => ({
+  ...base(f),
+  descripcion: txt(f.descripcion),
+  monto: num(f.monto),
+  categoria_id: txt(f.categoria_id),
+  dia: num(f.dia) || 1,
+  compartido: f.compartido === true,
+  pago: txt(f.pago) === "pareja" ? "pareja" : "yo",
+  mi_pct: num(f.mi_pct),
+  automatico: f.automatico !== false,
+});
+
 /**
  * La tabla todavía no existe: falta correr una migración en Supabase. Mejor
  * mostrar la app sin esa parte que romper todo.
@@ -179,6 +193,7 @@ export interface Datos {
   divGastos: DivGasto[];
   divCierres: DivCierre[];
   ahorros: Ahorro[];
+  gastosFijos: GastoFijo[];
 }
 
 export async function leerTodo(): Promise<Datos> {
@@ -192,13 +207,13 @@ export async function leerTodo(): Promise<Datos> {
 
   const [
     props, contratos, fijados, cobros, boletas, ajustes,
-    ingresos, ingresoCobros, categorias, misGastos, divGastos, divCierres, ahorros,
+    ingresos, ingresoCobros, categorias, misGastos, divGastos, divCierres, ahorros, fijos,
   ] = await Promise.all([
     leer(TABLAS.propiedades), leer(TABLAS.contratos), leer(TABLAS.alquileres),
     leer(TABLAS.cobros), leer(TABLAS.boletas), leer("ajustes"),
     leer(TABLAS.ingresos), leer(TABLAS.ingresoCobros), leer(TABLAS.categorias),
     leer(TABLAS.misGastos), leer(TABLAS.divGastos), leer(TABLAS.divCierres),
-    leer(TABLAS.ahorros, true),
+    leer(TABLAS.ahorros, true), leer(TABLAS.gastosFijos, true),
   ]);
   const porOrden = <T extends { orden: number; nombre: string }>(a: T, b: T) =>
     a.orden - b.orden || a.nombre.localeCompare(b.nombre);
@@ -221,6 +236,7 @@ export async function leerTodo(): Promise<Datos> {
     divGastos: divGastos.map(unDivGasto),
     divCierres: divCierres.map(unDivCierre),
     ahorros: ahorros.map(unAhorro),
+    gastosFijos: fijos.map(unGastoFijo).sort((a, b) => a.dia - b.dia),
   };
 }
 

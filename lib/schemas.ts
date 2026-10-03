@@ -180,6 +180,17 @@ export const ingresoCobroSchema = z.object({
   nota: z.string().trim().max(500).default(""),
 });
 
+export const gastoFijoSchema = z.object({
+  descripcion: z.string().trim().min(1, "Contá qué es").max(80),
+  monto: numero("Importe", 0.01),
+  categoria_id: z.string().trim().default(""),
+  dia: numero("Día", 1, 31).default(1),
+  compartido: z.boolean().default(false),
+  pago: z.enum(["yo", "pareja"]).default("yo"),
+  mi_pct: numero("Tu parte", 0, 100).default(50),
+  automatico: z.boolean().default(true),
+});
+
 export const ahorroSchema = z.object({
   fecha: fecha,
   periodo,
@@ -203,6 +214,7 @@ export const miGastoSchema = z.object({
   monto: numero("Importe", 0.01),
   categoria_id: z.string().trim().default(""),
   nota: z.string().trim().max(500).default(""),
+  fijo_id: z.string().trim().max(40).default(""),
 });
 
 export const divGastoSchema = miGastoSchema.extend({

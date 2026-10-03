@@ -3,7 +3,7 @@
 import useSWR, { mutate } from "swr";
 import type { ContratoCalculado, Resumen } from "./calc";
 import type {
-  Ahorro, Alquiler, Categoria, Cobro, CondicionesDefault, Config, Contrato, DivCierre, DivGasto, Gasto,
+  Ahorro, Alquiler, GastoFijo, Categoria, Cobro, CondicionesDefault, Config, Contrato, DivCierre, DivGasto, Gasto,
   Ingreso, IngresoCobro, MiGasto, Propiedad, Rol,
 } from "./types";
 
@@ -21,6 +21,9 @@ export interface DataResponse {
   divGastos: DivGasto[];
   divCierres: DivCierre[];
   ahorros: Ahorro[];
+  gastosFijos: GastoFijo[];
+  /** Si la cuenta es de un administrador: ve el panel de /admin. */
+  admin?: boolean;
   condiciones: CondicionesDefault;
   calculados: ContratoCalculado[];
   resumen: Resumen;

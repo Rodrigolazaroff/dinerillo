@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { Aviso, Boton, Campo, Input, Segmentado } from "@/components/ui";
@@ -218,6 +219,18 @@ function Formulario() {
             </button>
           )}
         </form>
+
+        <p className="mt-6 text-center text-[11px] leading-relaxed text-tenue">
+          Al entrar aceptás los{" "}
+          <Link href="/terminos" className="font-medium text-suave underline underline-offset-2">
+            términos
+          </Link>{" "}
+          y la{" "}
+          <Link href="/privacidad" className="font-medium text-suave underline underline-offset-2">
+            política de privacidad
+          </Link>
+          .
+        </p>
       </div>
     </main>
   );

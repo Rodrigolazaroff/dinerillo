@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Figtree } from "next/font/google";
 import { RegistrarSW } from "@/components/PWA";
+import { ReportarErrores } from "@/components/ReportarErrores";
 import "./globals.css";
 
 // Las dos se sirven desde la app (next/font): sin pedido a Google al abrir,
@@ -47,6 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <RegistrarSW />
+        <ReportarErrores />
       </body>
     </html>
   );

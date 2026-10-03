@@ -133,6 +133,35 @@ una boleta (el server y la pantalla lo filtran los dos).
 botón, `lib/pdfDivision.ts`) y abre la hoja de compartir del celular (WhatsApp); en la
 compu lo descarga. Mismo formato que el viejo Divisor de Gastos.
 
+## Gastos fijos
+
+Lo que se paga todos los meses (`gastos_fijos`, migración 0006). Se crean desde Gastos →
+"Fijos del mes", con "Todos los meses" al cargar un gasto, o aceptando una sugerencia.
+
+- **Monto fijo** (Netflix, alquiler): se carga solo. Al abrir la app, el `Shell` carga
+  los que ya tocaron este mes y no están (`fijosParaCargarSolos`). Cada gasto lleva
+  `fijo_id` y un índice único impide cargar dos veces el mismo fijo en el mes.
+- **Monto que varía** (la luz): "Para hacer" pide confirmarlo tres días antes, con el
+  promedio de los últimos tres meses como estimado.
+- **Sugerencias**: lo que se repite en dos de los últimos tres meses por un monto
+  parecido (`sugerirFijos`). Es contar, no IA: gratis y sin mandar datos a nadie.
+
+## Administración y errores
+
+`/admin` (link en el menú del avatar, solo para quien está en la tabla `admins`):
+usuarios, activos, usos y costo estimado de la IA, y los últimos errores con su detalle.
+Lo deciden las funciones `admin_*` de la base (security definer): nunca muestran montos.
+
+Los errores se guardan en `errores`: los del navegador los manda `ReportarErrores`
+(y `app/error.tsx` / `app/global-error.tsx`), y los del server `registrarError`
+(`lib/errores.ts`, después de responder). Los logs crudos siguen en Vercel → Logs.
+
+**Topes de la IA** (`/api/ia`): 30 usos por persona por día y 400 entre todos
+(`ia_usos`), 500 tokens de salida por pedido, fotos a 1600 px y PDFs de hasta 2 MB.
+
+**Páginas legales**: `/privacidad` y `/terminos`, públicas, con el contacto en
+`components/Legal.tsx`.
+
 ## Formularios
 
 - **`Panel`** (`components/ui.tsx`) es un diálogo flotante centrado, en celu y en compu,

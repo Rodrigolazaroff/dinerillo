@@ -14,6 +14,8 @@ const PUBLICAS = [
   "/sw.js",
   "/offline",
   "/icons/",
+  "/privacidad",
+  "/terminos",
 ];
 
 export default async function proxy(req: NextRequest) {

@@ -9,8 +9,9 @@ import {
 import { Emoji } from "@/components/Emoji";
 import { MenuPerfil } from "@/components/MenuPerfil";
 import { BotonOjo } from "@/components/Privado";
-import { Toasts } from "@/components/Toast";
+import { Toasts, avisar } from "@/components/Toast";
 import { Cargando } from "@/components/ui";
+import { fijosParaCargarSolos } from "@/lib/finanzas";
 import { enviar, tieneDatos, useData, usaDivision } from "@/lib/useData";
 
 // Esta app se usa desde el celular casi siempre, así que manda el layout mobile:
@@ -62,6 +63,41 @@ export function Shell({ children }: { children: ReactNode }) {
     marcado.current = true;
     void enviar("/api/config", "POST", { onboarding: "previo" }).then(() => recargar());
   }, [data, falta, nuevo, router, recargar]);
+
+  // Los gastos fijos de monto fijo se cargan solos el día que tocan: al abrir
+  // la app, lo que ya venció este mes y no está, se carga. La base no deja
+  // duplicar un fijo en el mes, así que dos dispositivos a la vez no suman dos.
+  const intentados = useRef(new Set<string>());
+  useEffect(() => {
+    if (!data || falta) return;
+    const e = {
+      ingresos: [], ingresoCobros: [], categorias: [], divCierres: [], calculados: [], config: {},
+      misGastos: data.misGastos ?? [], divGastos: data.divGastos ?? [], gastosFijos: data.gastosFijos ?? [],
+    };
+    const periodo = data.hoy.slice(0, 7);
+    const pendientes = fijosParaCargarSolos(e, data.hoy).filter((f) => !intentados.current.has(`${f.fijo.id}:${periodo}`));
+    if (!pendientes.length) return;
+    pendientes.forEach((f) => intentados.current.add(`${f.fijo.id}:${periodo}`));
+    void Promise.all(
+      pendientes.map(({ fijo, dia }) =>
+        enviar(fijo.compartido ? "/api/division" : "/api/mis-gastos", "POST", {
+          fecha: `${periodo}-${String(dia).padStart(2, "0")}`,
+          periodo,
+          descripcion: fijo.descripcion,
+          monto: fijo.monto,
+          categoria_id: fijo.categoria_id,
+          nota: "",
+          fijo_id: fijo.id,
+          ...(fijo.compartido ? { pago: fijo.pago, mi_pct: fijo.mi_pct } : {}),
+        })
+      )
+    ).then((rs) => {
+      const ok = rs.filter((r) => r.ok).length;
+      if (!ok) return;
+      avisar(ok === 1 ? `Se cargó solo: ${pendientes[0].fijo.descripcion}` : `Se cargaron solos ${ok} gastos fijos`);
+      void recargar();
+    });
+  }, [data, falta, recargar]);
 
   const links = LINKS.filter((l) => l.href !== "/division" || !data || usaDivision(data));
 
