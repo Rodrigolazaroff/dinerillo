@@ -20,7 +20,7 @@ function traducir(msg: string): string {
   if (/password should be at least/i.test(msg)) return "La contraseña tiene que tener al menos 8 caracteres.";
   if (/rate limit|too many/i.test(msg)) return "Demasiados intentos. Esperá un rato y probá de nuevo.";
   if (/valid email|invalid email|unable to validate email/i.test(msg)) return "Ese mail no parece válido.";
-  return "No pude completar la entrada. Probá de nuevo.";
+  return "No pude entrar. Probá de nuevo.";
 }
 
 export default function Login() {
@@ -90,10 +90,11 @@ function Formulario() {
       return;
     }
     if (data.session) {
-      window.location.href = "/";
+      // Cuenta nueva: directo a las preguntas de bienvenida.
+      window.location.href = "/bienvenida";
       return;
     }
-    setAviso(`Listo. Te mandamos un mail a ${email} para confirmar la cuenta.`);
+    setAviso(`Te mandamos un mail a ${email} para confirmar.`);
     setClave("");
   }
 

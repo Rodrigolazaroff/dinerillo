@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { aCampo, aNumero } from "@/components/FormGasto";
 import { avisar } from "@/components/Toast";
 import { Aviso, Boton, Campo, Input, InputPlata, Panel, Select } from "@/components/ui";
 import {
-  hoyISO, periodoActual, periodoLargo, plata, redondear, simboloMoneda, sumarMeses,
+  aCampo, aNumero, hoyISO, periodoActual, periodoLargo, plata, redondear, simboloMoneda, sumarMeses,
 } from "@/lib/format";
 import type { Ingreso, IngresoCobro } from "@/lib/types";
 import { enviar } from "@/lib/useData";
@@ -48,7 +47,7 @@ export function FormCobroIngreso({
   );
   const [periodo, setPeriodo] = useState(cobro?.periodo ?? inicial?.periodo ?? mes);
   const [tc, setTc] = useState(
-    cobro && !enPesos ? aCampo(cobro.tipo_cambio) : ultimoTipoCambio ? aCampo(ultimoTipoCambio) : ""
+    cobro && !enPesos ? aCampo(cobro.tipo_cambio, 4) : ultimoTipoCambio ? aCampo(ultimoTipoCambio, 4) : ""
   );
   const [nota, setNota] = useState(cobro?.nota ?? inicial?.nota ?? "");
   const [error, setError] = useState("");
@@ -129,30 +128,29 @@ export function FormCobroIngreso({
     >
       <form id={ID_FORM} onSubmit={guardar} className="flex flex-col gap-4">
         {aviso && <Aviso tipo="info">Revisá: {aviso}</Aviso>}
-        <Campo label={`Importe en ${ingreso.moneda}`}>
+        <Campo label={enPesos ? "Importe" : `Importe en ${ingreso.moneda}`}>
           <InputPlata
             simbolo={simboloMoneda(ingreso.moneda)}
             value={monto}
             onChange={(e) => setMonto(e.target.value)}
             placeholder="0"
-            autoFocus={!cobro}
-            className="py-3 text-2xl font-semibold sm:py-2.5 sm:text-2xl"
+            grande
             required
           />
         </Campo>
 
         {!enPesos && (
           <Campo
-            label={`Tipo de cambio (pesos por 1 ${ingreso.moneda})`}
+            label={`1 ${ingreso.moneda} en pesos`}
             hint={
               Number.isFinite(n) && Number.isFinite(t) && n > 0 && t > 0
-                ? `Son ${plata(n * t)}. Queda fijo: si mañana se mueve el dólar, este cobro no cambia.`
+                ? `Son ${plata(n * t)}.`
                 : ultimoTipoCambio
-                  ? "Arranca con el del último cobro. Corregilo al de hoy."
-                  : "El que te dieron al cambiar, o el oficial del día."
+                  ? "El del último cobro."
+                  : "El que te dieron al cambiar."
             }
           >
-            <InputPlata value={tc} onChange={(e) => setTc(e.target.value)} placeholder="0" required />
+            <InputPlata value={tc} onChange={(e) => setTc(e.target.value)} decimales={4} placeholder="0" required />
           </Campo>
         )}
 

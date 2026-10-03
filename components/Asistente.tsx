@@ -4,14 +4,14 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Emoji } from "@/components/Emoji";
 import { FormCobroIngreso } from "@/components/FormCobroIngreso";
-import { FormGasto } from "@/components/FormGasto";
+import { ETIQUETA_GASTO, FormGasto } from "@/components/FormGasto";
 import { FormMovimiento } from "@/components/FormMovimiento";
 import { avisar } from "@/components/Toast";
 import { Boton, Panel, Textarea } from "@/components/ui";
 import { enPesos, preferencias } from "@/lib/finanzas";
 import { TIPOS_GASTO } from "@/lib/schemas";
 import type { TipoGasto } from "@/lib/types";
-import { useData } from "@/lib/useData";
+import { useData, usaAlquileres, usaDivision } from "@/lib/useData";
 import { useMes } from "@/lib/useMes";
 
 // La carga asistida: dictar ("luz 40 mil compartido") o subir una factura, y
@@ -102,7 +102,7 @@ async function interpretar(
     signal: senal,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error ?? "No pude interpretarlo");
+  if (!res.ok) throw new Error(data?.error ?? "No lo entendí. Probá de nuevo.");
   return data.datos as Interpretacion;
 }
 
@@ -118,12 +118,15 @@ export function Atajo({
   onClick,
   disabled,
   etiqueta,
+  suave = false,
 }: {
   emoji: string;
   children: ReactNode;
   onClick: () => void;
   disabled?: boolean;
   etiqueta?: string;
+  /** Las formas de cargar (dictar, factura) se ven distintas de lo que se carga. */
+  suave?: boolean;
 }) {
   return (
     <button
@@ -131,7 +134,11 @@ export function Atajo({
       onClick={onClick}
       disabled={disabled}
       aria-label={etiqueta}
-      className="flex flex-col items-center gap-1.5 rounded-2xl bg-papel px-1 pb-2.5 pt-3 text-xs font-semibold text-tinta ring-1 ring-borde transition-[transform,background-color,box-shadow] duration-150 ease-[var(--ease-quart)] hover:bg-celeste-claro hover:ring-celeste active:scale-[0.95] disabled:opacity-60"
+      className={`flex flex-col items-center gap-1.5 rounded-2xl px-1 pb-2.5 pt-3 text-xs font-semibold text-tinta transition-[transform,background-color,box-shadow] duration-150 ease-[var(--ease-quart)] active:scale-[0.95] disabled:opacity-60 ${
+        suave
+          ? "bg-celeste-claro hover:bg-celeste/50"
+          : "bg-papel ring-1 ring-borde hover:bg-celeste-claro hover:ring-celeste"
+      }`}
     >
       <Emoji nombre={emoji} tamano="lg" className="transition-transform duration-200 ease-[var(--ease-quart)] [button:hover>&]:-rotate-6 [button:hover>&]:scale-110" />
       {children}
@@ -177,14 +184,14 @@ export function Asistente({
       // Un cobro de ingreso sin saber de qué fuente no se puede precargar.
       const esCobro = modo === "libre" && datos.destino === "cobro_ingreso";
       if (esCobro && !data?.ingresos.some((i) => !i.deleted_at && i.nombre === datos.ingreso)) {
-        avisar("No supe de qué ingreso es. Elegilo y cargá el cobro.");
+        avisar("No supe de qué ingreso es. Elegilo.");
         router.push("/ingresos");
       } else {
         setResultado(datos);
       }
     } catch (e) {
       const cortado = e instanceof DOMException && e.name === "AbortError";
-      avisar(cortado ? "Tardó demasiado. Probá de nuevo." : e instanceof Error ? e.message : "No pude interpretarlo");
+      avisar(cortado ? "Tardó demasiado. Probá de nuevo." : e instanceof Error ? e.message : "No lo entendí. Probá de nuevo.");
     } finally {
       clearTimeout(reloj);
       setPensando("");
@@ -202,12 +209,25 @@ export function Asistente({
     if (archivoRef.current) archivoRef.current.value = "";
   }
 
-  // El destino: el de la pantalla, o el que se entendió si es el Inicio.
-  const destino = resultado
-    ? modo === "libre"
+  // El destino: el de la pantalla, o el que se entendió si es el Inicio. Lo
+  // que la persona no usa (dividir, alquileres) cae en un gasto común.
+  const divide = data ? usaDivision(data) : true;
+  const conAlquileres = data ? usaAlquileres(data) : false;
+  // En Gastos o División, si dijo "compartido" (o al revés) se le hace caso:
+  // el formulario muestra arriba a cuál va y se cambia de un toque.
+  const mioOCompartido = (d: string) => d === "gasto" || d === "compartido";
+  const entendido = resultado
+    ? modo === "libre" || (mioOCompartido(modo) && mioOCompartido(resultado.destino))
       ? resultado.destino
-      : modo === "boleta" ? "boleta" : modo
+      : modo
     : null;
+  const destino =
+    (entendido === "compartido" && !divide) || (entendido === "boleta" && modo === "libre" && !conAlquileres)
+      ? "gasto"
+      : entendido;
+  // Una boleta que terminó como gasto se describe por su tipo: "Luz", "Agua".
+  const descripcionDe = (r: Interpretacion) =>
+    r.descripcion || (r.tipo_boleta ? ETIQUETA_GASTO[r.tipo_boleta] : "");
 
   const categorias = data?.categorias ?? [];
   const prefs = preferencias(data?.config ?? {});
@@ -226,12 +246,12 @@ export function Asistente({
   return (
     <>
       {variante === "atajos" ? (
-        <div className={`grid grid-cols-4 gap-2 ${className}`}>
+        <div className={`grid auto-cols-fr grid-flow-col gap-2 ${className}`}>
           {antes}
-          <Atajo emoji="microfono" onClick={() => setDictando(true)} disabled={ocupado} etiqueta="Cargar dictando">
+          <Atajo emoji="microfono" onClick={() => setDictando(true)} disabled={ocupado} etiqueta="Cargar dictando" suave>
             {pensando === "audio" ? "Entendiendo…" : "Dictar"}
           </Atajo>
-          <Atajo emoji="recibo" onClick={() => archivoRef.current?.click()} disabled={ocupado} etiqueta="Cargar desde una factura">
+          <Atajo emoji="recibo" onClick={() => archivoRef.current?.click()} disabled={ocupado} etiqueta="Cargar desde una factura" suave>
             {pensando === "factura" ? "Leyendo…" : "Factura"}
           </Atajo>
         </div>
@@ -262,6 +282,7 @@ export function Asistente({
 
       {dictando && (
         <PanelDictado
+          ejemplo={`Ej: ayer el súper 85 lucas${divide && prefs.pareja ? `, lo pagó ${prefs.pareja}` : ""}`}
           cerrar={() => setDictando(false)}
           alListo={(texto) => {
             setDictando(false);
@@ -273,11 +294,12 @@ export function Asistente({
       {resultado && (destino === "gasto" || destino === "compartido") && data && (
         <FormMovimiento
           modo={destino === "compartido" ? "compartido" : "propio"}
+          puedeCompartir={divide}
           abierto
           cerrar={cerrar}
           inicial={{
             monto: resultado.monto ?? undefined,
-            descripcion: resultado.descripcion,
+            descripcion: descripcionDe(resultado),
             categoria_id: idCategoria(resultado.categoria),
             fecha,
             pago: resultado.pago ?? "yo",
@@ -342,7 +364,15 @@ export function Asistente({
 
 // ── dictado ─────────────────────────────────────────────────────────
 
-function PanelDictado({ cerrar, alListo }: { cerrar: () => void; alListo: (texto: string) => void }) {
+function PanelDictado({
+  ejemplo,
+  cerrar,
+  alListo,
+}: {
+  ejemplo: string;
+  cerrar: () => void;
+  alListo: (texto: string) => void;
+}) {
   const [texto, setTexto] = useState("");
   const [escuchando, setEscuchando] = useState(false);
   const [sinVoz] = useState(() => crearReconocedor() === null);
@@ -389,7 +419,7 @@ function PanelDictado({ cerrar, alListo }: { cerrar: () => void; alListo: (texto
     <Panel
       abierto
       cerrar={cerrar}
-      titulo="Dictá lo que querés cargar"
+      titulo="¿Qué cargamos?"
       pie={
         <div className="flex gap-2">
           <Boton variante="secundario" onClick={cerrar}>
@@ -419,12 +449,12 @@ function PanelDictado({ cerrar, alListo }: { cerrar: () => void; alListo: (texto
             ? "Este navegador no reconoce la voz: escribilo como lo dirías."
             : escuchando
               ? "Te escucho…"
-              : "Tocá el micrófono para seguir, o corregí el texto."}
+              : "Tocá el micrófono o corregí el texto."}
         </p>
         <Textarea
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
-          placeholder="Ej: luz 40 mil compartido · almuerzo 12.500 · ayer el super 85 lucas, lo pagó Nahi"
+          placeholder={ejemplo}
           className="w-full"
           maxLength={2000}
         />
@@ -438,15 +468,6 @@ function IconoMicrofono({ className = "h-4 w-4" }: { className?: string }) {
     <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
       <rect x="9" y="3.5" width="6" height="11" rx="3" />
       <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v2.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function IconoFactura({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-      <path d="M6 3.5h12v17l-3-2-3 2-3-2-3 2z" strokeLinejoin="round" />
-      <path d="M9 8.5h6M9 12h6" strokeLinecap="round" />
     </svg>
   );
 }

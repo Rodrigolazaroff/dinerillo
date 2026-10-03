@@ -10,12 +10,14 @@
 //
 // Los ultimos dos bloques prueban lo contrario: que ninguna de esas condiciones
 // este fija en el codigo.
-const { calcularContrato } = require("../.test-build/calc.js");
+const { calcular, calcularContrato, proximoAumento } = require("../.test-build/calc.js");
 
 let fallas = 0;
+let casos = 0;
 const casi = (a, b, tol = 0.02) => Math.abs(a - b) <= tol;
 function chequeo(nombre, obtenido, esperado) {
   const ok = casi(obtenido, esperado);
+  casos++;
   if (!ok) fallas++;
   const fmt = (n) => n.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   console.log(`${ok ? "  ok  " : " FALLA"} ${nombre.padEnd(46)} ${fmt(obtenido).padStart(14)}  esperado ${fmt(esperado)}`);
@@ -106,5 +108,34 @@ chequeo("ago-26 · marcado como fijado", ago.fijado ? 1 : 0, 1);
 chequeo("ago-26 · comision sobre el importe real", ago.comision, 44800);
 chequeo("sep-26 · la proyeccion sigue su curso", rFijo.cuotas.find((c) => c.periodo === "2026-09").bruto, 660000);
 
-console.log(fallas === 0 ? "\nTODO OK: los 38 casos dan igual que la planilla.\n" : `\n${fallas} CASOS FALLARON\n`);
+console.log("\n=== el proximo aumento, contra lo que se paga hoy ===");
+const aum = proximoAumento(rCasa, "2026-09");
+chequeo("sep-26 paga $660.000 · sube en nov-26", aum ? Number(aum.periodo.slice(-2)) : 0, 11);
+chequeo("nov-26 · el importe nuevo", aum ? aum.bruto : 0, 726000);
+chequeo("nov-26 · +10%", aum ? aum.pct : 0, 10);
+chequeo("ultimo escalon del contrato · ya no sube", proximoAumento(rCasa, "2027-02") === null ? 1 : 0, 1);
+const porEmpezar = calcularContrato(casa, prop, [], gastos, [], "2026-03-15");
+const aumPorEmpezar = proximoAumento(porEmpezar, "2026-03");
+chequeo("sin arrancar · compara contra la cuota 1", aumPorEmpezar ? aumPorEmpezar.bruto : 0, 660000);
+
+console.log("\n=== el año a la fecha: solo lo que paso ===");
+// Un contrato que viene de 2025, otro que arranco en mayo y un mes cobrado por
+// adelantado. Ni 2025 ni octubre entran en "lo que te dejo este año".
+const viejo = { ...base, id: "c5", fecha_inicio: "2025-11-01", meses: 12, alquiler_inicial: 100000,
+  ajuste_tipo: "ninguno", aumento_pct: 0, aumento_meses: 3, comision_pct: 10, mora_pct_diario: 0, prorrateo_pct: 0 };
+const cobro = (id, contrato_id, periodo, fecha_cobro, importe) =>
+  ({ id, contrato_id, periodo, fecha_cobro, importe, nota: "", created_at: "", deleted_at: "" });
+const cobrosAnio = [
+  cobro("y1", "c5", "2025-12", "2025-12-10", 90000),
+  cobro("y2", "c5", "2026-01", "2026-01-10", 90000),
+  cobro("y3", "c1", "2026-05", "2026-05-10", 570101.02),
+  cobro("y4", "c1", "2026-10", "2026-09-19", 600000),
+];
+const { resumen } = calcular([prop], [casa, viejo], cobrosAnio, gastos, [], {}, "2026-09-20");
+chequeo("te dejo · ene del viejo + may de la casa", resumen.anioALaFecha.neto, 90000 + 558000);
+chequeo("comision · solo la de lo cobrado", resumen.anioALaFecha.comision, 10000 + 42000);
+chequeo("cobrado · con el reintegro adentro", resumen.anioALaFecha.cobrado, 90000 + 570101.02);
+chequeo("el año proyectado si suma octubre", resumen.anio.cobrado, 90000 + 570101.02 + 600000);
+
+console.log(fallas === 0 ? `\nTODO OK: los ${casos} casos dan bien.\n` : `\n${fallas} de ${casos} CASOS FALLARON\n`);
 process.exit(fallas ? 1 : 0);

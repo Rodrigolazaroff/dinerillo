@@ -6,42 +6,51 @@ import { Emoji } from "@/components/Emoji";
 import { ElegirEmoji } from "@/components/ElegirEmoji";
 import { sugerirEmoji } from "@/lib/emoji";
 import { avisar } from "@/components/Toast";
-import { Aviso, Boton, Campo, Card, Input, InputPct } from "@/components/ui";
+import { Aviso, Boton, Campo, Card, Input, InputPct, Interruptor } from "@/components/ui";
+import { aNumero } from "@/lib/format";
 import { preferencias } from "@/lib/finanzas";
 import type { Categoria, Config } from "@/lib/types";
 import { enviar } from "@/lib/useData";
 
-// Las preferencias de los módulos de plata y las categorías. Los números que
-// vienen de fábrica (15% de ahorro, mitad y mitad) son el punto de partida:
-// cada uno pone los suyos.
+// Lo tuyo: cómo te llamamos, cuánto querés ahorrar y si dividís gastos con
+// alguien. Lo mismo que se contesta en la Bienvenida, para cambiarlo después.
 
 export function AjustesFinanzas({
   config,
   categorias,
+  nombreCuenta,
+  email,
   recargar,
 }: {
   config: Config;
   categorias: Categoria[];
+  /** El nombre que trae la cuenta, para cuando no eligió otro. */
+  nombreCuenta: string;
+  email: string;
   recargar: () => Promise<unknown>;
 }) {
   const prefs = preferencias(config);
+  const [nombre, setNombre] = useState(prefs.nombre || nombreCuenta);
   const [ahorro, setAhorro] = useState(String(prefs.ahorroPct));
+  const [divide, setDivide] = useState(prefs.divide);
   const [pareja, setPareja] = useState(prefs.pareja);
   const [miPct, setMiPct] = useState(String(prefs.divMiPct));
   const [err, setErr] = useState("");
   const [guardando, setGuardando] = useState(false);
 
   async function guardar() {
-    const a = Number(ahorro.replace(",", "."));
-    const m = Number(miPct.replace(",", "."));
+    const a = aNumero(ahorro);
+    const m = aNumero(miPct);
+    if (!nombre.trim()) return setErr("Poné tu nombre.");
     if (!Number.isFinite(a) || a < 0 || a > 100) return setErr("El ahorro va de 0 a 100%.");
-    if (!Number.isFinite(m) || m < 0 || m > 100) return setErr("Tu parte va de 0 a 100%.");
+    if (divide && (!Number.isFinite(m) || m < 0 || m > 100)) return setErr("Tu parte va de 0 a 100%.");
     setErr("");
     setGuardando(true);
     const r = await enviar("/api/config", "POST", {
+      nombre: nombre.trim(),
       ahorro_pct: String(a),
-      div_mi_pct: String(m),
-      pareja_nombre: pareja.trim(),
+      divide: divide ? "si" : "no",
+      ...(divide ? { div_mi_pct: String(m), pareja_nombre: pareja.trim() } : {}),
     });
     setGuardando(false);
     if (!r.ok) return setErr(r.error);
@@ -51,33 +60,38 @@ export function AjustesFinanzas({
 
   return (
     <>
-      <Card titulo="Tu plata" nota="Lo que se usa para sugerirte y para precargar los formularios.">
-        <div className="grid grid-cols-2 gap-3 px-4 py-4 sm:px-5">
-          <Campo
-            label="Ahorro sugerido"
-            hint="Qué parte de lo que entra te gustaría guardar cada mes."
-            className="col-span-2 sm:col-span-1"
-          >
-            <InputPct value={ahorro} onChange={(e) => setAhorro(e.target.value)} />
-          </Campo>
-          <Campo label="Tu pareja" hint="Para División: quién es el otro." className="col-span-2 sm:col-span-1">
-            <Input value={pareja} onChange={(e) => setPareja(e.target.value)} maxLength={40} placeholder="Su nombre" />
-          </Campo>
-          <Campo
-            label="Tu parte de un gasto compartido"
-            hint="Con qué arranca el formulario. Cada gasto puede tener la suya."
-            className="col-span-2"
-          >
-            <InputPct value={miPct} onChange={(e) => setMiPct(e.target.value)} />
-          </Campo>
+      <Card titulo="Vos">
+        <div className="flex flex-col gap-4 px-4 py-4 sm:px-5">
+          <div className="grid grid-cols-2 gap-3">
+            <Campo label="Tu nombre" hint={email} className="col-span-2 sm:col-span-1">
+              <Input value={nombre} onChange={(e) => setNombre(e.target.value)} maxLength={40} autoComplete="given-name" />
+            </Campo>
+            <Campo label="Meta de ahorro" className="col-span-2 sm:col-span-1">
+              <InputPct value={ahorro} onChange={(e) => setAhorro(e.target.value)} />
+            </Campo>
+          </div>
+
+          <div className="flex flex-col gap-3 border-t border-linea pt-3">
+            <Interruptor activo={divide} onCambio={setDivide}>
+              Divido gastos con alguien
+            </Interruptor>
+            {divide && (
+              <div className="aparece grid grid-cols-2 gap-3">
+                <Campo label="Con quién" className="col-span-2 sm:col-span-1">
+                  <Input value={pareja} onChange={(e) => setPareja(e.target.value)} maxLength={40} placeholder="Su nombre" />
+                </Campo>
+                <Campo label="Tu parte" hint="Se cambia en cada gasto." className="col-span-2 sm:col-span-1">
+                  <InputPct value={miPct} onChange={(e) => setMiPct(e.target.value)} />
+                </Campo>
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex flex-col gap-2 border-t border-borde px-4 py-3 sm:px-5">
           <Aviso tipo="error">{err}</Aviso>
-          <div>
-            <Boton onClick={guardar} disabled={guardando}>
-              {guardando ? "Guardando…" : "Guardar"}
-            </Boton>
-          </div>
+          <Boton onClick={guardar} disabled={guardando} className="w-full sm:w-auto sm:self-start">
+            {guardando ? "Guardando…" : "Guardar"}
+          </Boton>
         </div>
       </Card>
 
@@ -148,7 +162,7 @@ function Categorias({
   return (
     <Card
       titulo="Categorías"
-      nota="Las mismas para tus gastos y para los compartidos. Tocá el emoji para cambiarlo y el punto para cambiar el color."
+      nota="Tocá el emoji o el punto para cambiarlos."
     >
       {categorias.length > 0 && (
         <ul className="divide-y divide-linea">
@@ -173,7 +187,7 @@ function Categorias({
                     if (e.key === "Escape") setEditando(null);
                   }}
                   maxLength={40}
-                  className="min-w-0 flex-1 rounded-md border border-acento bg-papel px-2 py-1 text-sm focus:outline-none"
+                  className="min-w-0 flex-1 rounded-md border border-acento bg-papel px-2 py-1 text-base focus:outline-none sm:text-sm"
                 />
               ) : (
                 <button
@@ -211,7 +225,7 @@ function Categorias({
           maxLength={40}
         />
         <Boton onClick={crear} disabled={!nueva.trim()}>
-          Agregar
+          Crear
         </Boton>
       </div>
       {eligiendoEmoji && (

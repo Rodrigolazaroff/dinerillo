@@ -1,33 +1,29 @@
-# Rentifay
+# Dinerillo
 
-App para llevar el control de los alquileres: qué falta cobrar, cómo vienen los aumentos,
-el agua y el impuesto que se reparten entre inquilinos, y cuánto queda de verdad al final
-del año.
+La plata del mes en un solo lugar: lo que entra, lo que sale, lo que dividís con alguien
+y, si tenés propiedades, los alquileres. Antes se llamaba Rentifay.
 
-Mobile-first e instalable en el celular. Los datos viven en una Google Sheet propia.
+Mobile-first e instalable en el celular (PWA). Cualquiera se crea una cuenta; los datos
+viven en Supabase y cada cuenta ve solo lo suyo.
 
 ## Levantarla
 
 ```bash
 npm install
 cp .env.example .env.local   # y completar
-npm run bootstrap            # prepara las pestañas de la Sheet
 npm run dev
 ```
 
 ## Qué hace
 
-- **Contratos con condiciones propias.** El monto inicial, cada cuánto y cuánto aumenta,
-  la comisión de la inmobiliaria, el día de vencimiento, el recargo por mora y qué parte
-  de los servicios paga el inquilino: todo se carga por contrato. Nada está fijo en la app.
-- **Los meses armados solos.** Con el contrato cargado, la app proyecta el alquiler de
-  cada mes con sus aumentos escalonados, la comisión, el neto y lo que tendría que entrar.
-  Y si un mes salió distinto, se fija el importe real a mano.
-- **Servicios que se reparten.** El agua y el impuesto se cargan una vez, con el total de
-  la boleta, y cada inquilino se lleva su porcentaje.
-- **Mora al día.** El recargo se calcula contra el día en que entró la plata; si todavía no
-  entró, corre hasta hoy.
-- **Gráficos.** Lo cobrado contra lo esperado mes a mes, la escalera de aumentos por
-  propiedad, en qué se reparte cada peso de alquiler y los gastos que nadie reintegra.
+- **Arranca a tu medida.** Al crear la cuenta, cuatro preguntas (cómo te llamás, de
+  dónde te entra la plata, cuánto querés ahorrar y si dividís gastos) y la app queda
+  armada: sin División si no dividís, sin Alquileres si no tenés.
+- **Cargar en segundos.** El "+", dictar o sacarle una foto a la factura. Los montos se
+  formatean mientras escribís, en pesos o en dólares.
+- **El mes en un número.** Cuánto te quedó, contra la meta de ahorro.
+- **División.** Quién pagó qué y quién le pasa cuánto a quién, con PDF para mandar.
+- **Alquileres.** Contratos con sus propias condiciones (aumentos escalonados, comisión,
+  mora, reparto de servicios), lo que falta cobrar y las boletas que se reparten.
 
 Los detalles de arquitectura y las decisiones de diseño están en [CLAUDE.md](CLAUDE.md).

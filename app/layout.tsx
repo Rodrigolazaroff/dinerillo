@@ -15,7 +15,7 @@ const bricolage = Bricolage_Grotesque({
 
 export const metadata: Metadata = {
   title: "Dinerillo",
-  description: "Tu plata del mes: ingresos, gastos, alquileres y lo que dividís en pareja.",
+  description: "Tu plata del mes en un solo lugar: lo que entra, lo que sale y lo que dividís.",
   applicationName: "Dinerillo",
   manifest: "/manifest.webmanifest",
   appleWebApp: {

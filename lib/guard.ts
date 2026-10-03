@@ -3,7 +3,12 @@ import { supabaseServer } from "./supabase/server";
 import type { Rol } from "./types";
 
 export interface Sesion {
+  /** Primer nombre de la cuenta, o lo de antes de la arroba del mail. */
   usuario: string;
+  email: string;
+  /** La foto de Google, si entró con Google. */
+  avatar: string;
+  proveedor: string;
   rol: Rol;
 }
 
@@ -17,9 +22,17 @@ export async function sesionActual(): Promise<Sesion | null> {
   const u = data.user;
   if (!u) return null;
   const meta = u.user_metadata ?? {};
+  const email = u.email ?? "";
   const nombre = String(meta.full_name ?? meta.name ?? "").trim().split(/\s+/)[0];
-  const usuario = nombre || u.email || "vos";
-  return { usuario: usuario.charAt(0).toUpperCase() + usuario.slice(1), rol: "editor" };
+  // Nunca el mail entero: "Hola, juan.perez@gmail.com" no es un saludo.
+  const usuario = nombre || email.split("@")[0] || "vos";
+  return {
+    usuario: usuario.charAt(0).toUpperCase() + usuario.slice(1),
+    email,
+    avatar: String(meta.avatar_url ?? meta.picture ?? ""),
+    proveedor: String(u.app_metadata?.provider ?? "email"),
+    rol: "editor",
+  };
 }
 
 /**

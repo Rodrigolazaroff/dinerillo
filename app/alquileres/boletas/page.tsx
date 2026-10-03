@@ -1,22 +1,39 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Asistente } from "@/components/Asistente";
-import { ETIQUETA_GASTO, FormGasto, aCampo, aNumero } from "@/components/FormGasto";
+import { Emoji } from "@/components/Emoji";
+import { ETIQUETA_GASTO, FormGasto } from "@/components/FormGasto";
 import { IconoLapiz, IconoMas, IconoTacho } from "@/components/iconos";
+import { Monto, usePrivado } from "@/components/Privado";
+import { SelectorMes } from "@/components/SelectorMes";
 import { Shell } from "@/components/Shell";
-import {
-  Aviso, Boton, Card, Cargando, Kpi, Segmentado, Select, Vacio,
-} from "@/components/ui";
-import {
-  fechaCorta, pct, periodoActual, periodoCorto, periodoLargo, plata, plataExacta, redondear,
-} from "@/lib/format";
-import { GASTOS_QUE_SE_REPARTEN, TIPOS_GASTO } from "@/lib/schemas";
+import { Aviso, Boton, Card, Cargando } from "@/components/ui";
+import { aCampo, aNumero, fechaCorta, pct, periodoCorto, periodoLargo, redondear } from "@/lib/format";
+import { TIPOS_GASTO } from "@/lib/schemas";
 import type { Gasto, TipoGasto } from "@/lib/types";
 import { enviar, useData } from "@/lib/useData";
+import { useMes } from "@/lib/useMes";
+
+// Las boletas que se reparten entre inquilinos (el agua, el inmobiliario): se
+// carga el total una vez y cada contrato se lleva su parte. En el celu, un mes
+// a la vez; en la compu, el año entero en una grilla.
 
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const MESES_NUM = MESES.map((_, i) => String(i + 1).padStart(2, "0"));
+
+/** Agua e inmobiliario van siempre; el resto aparece cuando tiene algo en el año. */
+const SIEMPRE: TipoGasto[] = ["agua", "inmobiliario"];
+
+const EMOJI_TIPO: Record<TipoGasto, string> = {
+  agua: "agua",
+  inmobiliario: "impuestos",
+  expensas: "casa",
+  luz: "luz",
+  gas: "fuego",
+  abl: "impuestos",
+  otro: "recibo",
+};
 
 /** "50" -> "50%", "33.5" -> "33,5%" */
 const comoPct = (n: number) => pct(n / 100, Number.isInteger(n) ? 0 : 1);
@@ -36,13 +53,10 @@ const cuerpoDe = (g: Gasto) => ({
 
 type EstadoCelda = "guardando" | "ok" | "error";
 
-export default function GastosPage() {
+export default function BoletasPage() {
   const { data, error, recargar, puedeEditar } = useData();
-
-  const hoyPeriodo = periodoActual();
-  const anioHoy = Number(hoyPeriodo.slice(0, 4));
-
-  const [anio, setAnio] = useState(anioHoy);
+  const [mes, setMes] = useMes();
+  const anio = mes.slice(0, 4);
 
   const [abierto, setAbierto] = useState(false);
   const [editando, setEditando] = useState<Gasto | null>(null);
@@ -64,91 +78,59 @@ export default function GastosPage() {
     []
   );
 
-  const gastos = useMemo(
-    () => (data?.gastos ?? []).filter((g) => !g.deleted_at),
-    [data?.gastos]
-  );
+  const boletas = useMemo(() => (data?.gastos ?? []).filter((g) => !g.deleted_at), [data?.gastos]);
   const propiedades = data?.propiedades ?? [];
-  const vigentes = (data?.calculados ?? []).filter((c) => c.vigente);
 
-  const reparten = gastos;
+  const nombrePropiedad = (id: string) => propiedades.find((p) => p.id === id)?.nombre ?? "Propiedad borrada";
 
-  const nombrePropiedad = (id: string) =>
-    propiedades.find((p) => p.id === id)?.nombre ?? "Propiedad borrada";
-
-  const anios = useMemo(() => {
-    const s = new Set<number>([anioHoy, anioHoy + 1]);
-    for (const g of gastos) {
-      const y = Number(g.periodo.slice(0, 4));
-      if (y) s.add(y);
-    }
-    return [...s].sort((a, b) => b - a);
-  }, [gastos, anioHoy]);
-
-  // Filas de la grilla: los cuatro que se reparten siempre, más cualquier otro
-  // tipo que ya tenga boletas cargadas con reintegro.
-  const tiposGrilla = useMemo(() => {
-    const con = new Set<TipoGasto>(GASTOS_QUE_SE_REPARTEN);
-    for (const g of reparten) con.add(g.tipo);
+  const tipos = useMemo(() => {
+    const con = new Set<TipoGasto>(SIEMPRE);
+    for (const g of boletas) if (g.periodo.startsWith(`${anio}-`)) con.add(g.tipo);
     return TIPOS_GASTO.filter((t) => con.has(t));
-  }, [reparten]);
+  }, [boletas, anio]);
 
   /*
-   * La grilla maneja la boleta que cubre todo (el medidor único): una por tipo
+   * La celda maneja la boleta que cubre todo (el medidor único): una por tipo
    * y por mes. Una boleta cargada a una propiedad puntual, o una segunda del
-   * mismo tipo y mes, no entra en la celda — se lista abajo para que quede
+   * mismo tipo y mes, no entra en la celda: se lista aparte para que quede
    * visible y editable en vez de desaparecer.
    */
   const { celdas, aparte } = useMemo(() => {
     const celdas = new Map<string, Gasto>();
     const aparte: Gasto[] = [];
-    for (const g of reparten) {
+    for (const g of boletas) {
       const clave = `${g.tipo}|${g.periodo}`;
       if (g.propiedad_id || celdas.has(clave)) aparte.push(g);
       else celdas.set(clave, g);
     }
     aparte.sort((a, b) => b.periodo.localeCompare(a.periodo));
     return { celdas, aparte };
-  }, [reparten]);
+  }, [boletas]);
 
-  const totalesMes = useMemo(
-    () =>
-      MESES_NUM.map((mm) =>
-        tiposGrilla.reduce((t, tipo) => t + (celdas.get(`${tipo}|${anio}-${mm}`)?.monto ?? 0), 0)
-      ),
-    [celdas, tiposGrilla, anio]
+  const aparteDelAnio = aparte.filter((g) => g.periodo.startsWith(`${anio}-`));
+
+  const totalesMes = MESES_NUM.map((mm) =>
+    tipos.reduce((t, tipo) => t + (celdas.get(`${tipo}|${anio}-${mm}`)?.monto ?? 0), 0)
   );
   const totalAnio = totalesMes.reduce((a, b) => a + b, 0);
   const totalFila = (tipo: TipoGasto) =>
     MESES_NUM.reduce((t, mm) => t + (celdas.get(`${tipo}|${anio}-${mm}`)?.monto ?? 0), 0);
 
-  // Base del reparto: todas las boletas con reintegro de un período, incluidas
-  // las que quedaron fuera de la grilla.
-  const porPeriodo = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const g of reparten) {
-      if (!g.periodo.startsWith(`${anio}-`)) continue;
-      m.set(g.periodo, (m.get(g.periodo) ?? 0) + g.monto);
-    }
-    return m;
-  }, [reparten, anio]);
-
-  const periodoReparto = useMemo(() => {
-    if (anio === anioHoy) return hoyPeriodo;
-    // Un año que ya pasó no tiene "mes actual": vale el último que cargó.
-    const conDatos = [...porPeriodo.keys()].sort();
-    return conDatos[conDatos.length - 1] ?? `${anio}-12`;
-  }, [anio, anioHoy, hoyPeriodo, porPeriodo]);
-
-  const baseReparto = porPeriodo.get(periodoReparto) ?? 0;
-  const detalleReparto = reparten
-    .filter((g) => g.periodo === periodoReparto)
-    .map((g) => `${ETIQUETA_GASTO[g.tipo]} ${plata(g.monto)}`)
-    .join(" · ");
-
-  const sumaPct = redondear(vigentes.reduce((a, c) => a + c.contrato.prorrateo_pct, 0), 2);
-  const restaPct = redondear(100 - sumaPct, 2);
-
+  // El reparto del mes elegido. Cada contrato se lleva lo que el cálculo le
+  // cobra de verdad (una boleta de una sola propiedad no le toca al otro), y
+  // lo que nadie cubre lo ponés vos.
+  const delMes = boletas.filter((g) => g.periodo === mes);
+  const base = redondear(delMes.reduce((a, g) => a + g.monto, 0));
+  const porTipo = TIPOS_GASTO.map((t) => ({
+    tipo: t,
+    total: delMes.filter((g) => g.tipo === t).reduce((a, g) => a + g.monto, 0),
+  })).filter((x) => x.total > 0);
+  const contratosMes = (data?.calculados ?? []).flatMap((cc) => {
+    const q = cc.cuotas.find((x) => x.periodo === mes);
+    return q ? [{ cc, parte: q.reintegro }] : [];
+  });
+  const sumaPct = redondear(contratosMes.reduce((a, x) => a + x.cc.contrato.prorrateo_pct, 0), 2);
+  const vos = redondear(base - contratosMes.reduce((a, x) => a + x.parte, 0));
 
   function marcar(clave: string, estado: EstadoCelda | null) {
     setEstados((p) => {
@@ -258,231 +240,239 @@ export default function GastosPage() {
     );
   }
 
-  const selectorAnio = (
-    <Select
-      aria-label="Año"
-      value={anio}
-      onChange={(e) => setAnio(Number(e.target.value))}
-      className="w-auto"
-    >
-      {anios.map((a) => (
-        <option key={a} value={a}>
-          {a}
-        </option>
-      ))}
-    </Select>
-  );
+  const celda = (tipo: TipoGasto, periodo: string, variante: "grilla" | "campo") => {
+    const clave = `${tipo}|${periodo}`;
+    const g = celdas.get(clave);
+    return (
+      <CeldaMes
+        valor={g ? aCampo(g.monto) : ""}
+        estado={estados[clave]}
+        deshabilitado={!puedeEditar}
+        etiqueta={`${ETIQUETA_GASTO[tipo]} de ${periodoLargo(periodo)}`}
+        variante={variante}
+        alGuardar={(v) => guardarCelda(tipo, periodo, v)}
+      />
+    );
+  };
 
   return (
     <Shell>
       <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="titulo text-2xl font-bold">Boletas</h1>
-          {/* Subir la boleta del agua o del inmobiliario y que se cargue sola. */}
-          <Asistente modo="boleta" />
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <SelectorMes className="-mx-2" />
+          <div className="flex flex-wrap items-center gap-2">
+            {puedeEditar && (
+              <Boton onClick={abrirNuevo} className="min-h-11 sm:min-h-9">
+                <IconoMas />
+                Cargar boleta
+              </Boton>
+            )}
+            {/* Subir la boleta del agua o del inmobiliario y que se cargue sola. */}
+            <Asistente modo="boleta" />
+          </div>
         </div>
 
-        <div className="aparece flex flex-col gap-4">
-            <Card
-              titulo="Servicios que te reintegran"
-              nota="Cargá el total de cada boleta. Escribí el importe y salí del campo: se guarda solo."
-              accion={
-                <div className="flex items-center gap-2">
-                  {selectorAnio}
-                  {puedeEditar && (
-                    <Boton onClick={abrirNuevo}>
-                      <IconoMas />
-                      Cargar boleta
-                    </Boton>
-                  )}
-                </div>
-              }
-            >
-              {errorGrilla && (
-                <div className="px-4 pt-3 sm:px-5">
-                  <Aviso tipo="error">{errorGrilla}</Aviso>
-                </div>
-              )}
-              <div className="scroll-x">
-                <table className="w-full min-w-[1320px] table-fixed border-separate border-spacing-0 sm:min-w-0">
-                  <thead>
-                    <tr>
-                      <th className="sticky left-0 z-10 w-[124px] border-b border-borde bg-papel px-4 py-2 text-left text-[11px] font-medium uppercase tracking-wide text-tenue sm:w-[150px] sm:px-5">
-                        Servicio
-                      </th>
-                      {MESES.map((m, i) => (
-                        <th
-                          key={m}
-                          className={`w-[92px] border-b border-borde bg-papel px-1.5 py-2 text-right text-[11px] font-medium text-tenue sm:w-[64px] ${
-                            `${anio}-${MESES_NUM[i]}` === hoyPeriodo ? "text-acento" : ""
-                          }`}
-                        >
-                          {m}
-                        </th>
-                      ))}
-                      <th className="w-[96px] border-b border-borde bg-papel px-3 py-2 text-right text-[11px] font-medium uppercase tracking-wide text-tenue sm:w-[84px]">
-                        Año
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tiposGrilla.map((tipo) => (
-                      <tr key={tipo} className="fila-hover">
-                        <th
-                          scope="row"
-                          title={ETIQUETA_GASTO[tipo]}
-                          className="sticky left-0 z-10 truncate border-b border-linea bg-papel px-4 py-1 text-left text-xs font-medium sm:px-5"
-                        >
-                          {ETIQUETA_GASTO[tipo]}
-                        </th>
-                        {MESES_NUM.map((mm) => {
-                          const periodo = `${anio}-${mm}`;
-                          const clave = `${tipo}|${periodo}`;
-                          const g = celdas.get(clave);
-                          return (
-                            <td key={mm} className="border-b border-linea px-0.5 py-1">
-                              <CeldaMes
-                                valor={g ? aCampo(g.monto) : ""}
-                                estado={estados[clave]}
-                                deshabilitado={!puedeEditar}
-                                etiqueta={`${ETIQUETA_GASTO[tipo]} de ${periodoLargo(periodo)}`}
-                                alGuardar={(v) => guardarCelda(tipo, periodo, v)}
-                              />
-                            </td>
-                          );
-                        })}
-                        <td className="tabular border-b border-linea px-3 py-1 text-right text-xs font-semibold">
-                          {totalFila(tipo) > 0 ? plata(totalFila(tipo)) : "—"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr>
-                      <th
-                        scope="row"
-                        className="sticky left-0 z-10 bg-fondo px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-suave sm:px-5"
-                      >
-                        Total
-                      </th>
-                      {totalesMes.map((t, i) => (
-                        <td
-                          key={MESES_NUM[i]}
-                          className="tabular bg-fondo px-1.5 py-2 text-right text-[11px] font-semibold text-suave"
-                        >
-                          {t > 0 ? plata(t) : "—"}
-                        </td>
-                      ))}
-                      <td className="tabular bg-fondo px-3 py-2 text-right text-xs font-semibold">
-                        {totalAnio > 0 ? plata(totalAnio) : "—"}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </Card>
+        {errorGrilla && <Aviso tipo="error">{errorGrilla}</Aviso>}
 
-            <Card
-              titulo={`Cómo se reparte ${periodoLargo(periodoReparto)}`}
-              nota={detalleReparto || "Todavía no hay boletas cargadas en ese mes."}
-            >
-              <div className="flex flex-col gap-3 px-4 py-3 sm:px-5">
-                {vigentes.length === 0 ? (
-                  <Aviso tipo="info">
-                    No hay contratos vigentes, así que estas boletas las estás poniendo enteras vos.
-                  </Aviso>
-                ) : (
-                  <>
-                    {restaPct > 0 && (
-                      <Aviso tipo="info">
-                        Los contratos vigentes cubren el {comoPct(sumaPct)} de los servicios que se
-                        reparten. El {comoPct(restaPct)} restante lo estás poniendo vos.
-                      </Aviso>
-                    )}
-                    {restaPct < 0 && (
-                      <Aviso tipo="error">
-                        Los contratos vigentes suman el {comoPct(sumaPct)}: estás cobrando{" "}
-                        {comoPct(-restaPct)} más de lo que pagás. Revisá el prorrateo de cada
-                        contrato.
-                      </Aviso>
-                    )}
+        {/* Celu: el mes elegido, una fila por servicio. */}
+        <Card className="sm:hidden">
+          <ul className="divide-y divide-linea">
+            {tipos.map((tipo) => (
+              <li key={tipo} className="flex items-center gap-3 px-4 py-2.5">
+                <Emoji nombre={EMOJI_TIPO[tipo]} tamano="md" />
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">{ETIQUETA_GASTO[tipo]}</span>
+                <div className="w-36 shrink-0">{celda(tipo, mes, "campo")}</div>
+              </li>
+            ))}
+          </ul>
+          <p className="border-t border-linea px-4 py-2.5 text-[11px] text-tenue">
+            El total de cada boleta. Se guarda solo.
+          </p>
+        </Card>
+
+        <Card
+          titulo="Cómo se reparte"
+          nota={
+            porTipo.length === 0
+              ? "Sin boletas ese mes."
+              : porTipo.map((x, i) => (
+                  <span key={x.tipo}>
+                    {i > 0 && " · "}
+                    {ETIQUETA_GASTO[x.tipo]} <Monto valor={x.total} />
+                  </span>
+                ))
+          }
+        >
+          {(contratosMes.length === 0 || sumaPct > 100 || base > 0) && (
+            <div className="flex flex-col gap-3 px-4 py-3 sm:px-5">
+              {contratosMes.length === 0 ? (
+                <Aviso tipo="info">Sin contratos vigentes: las pagás enteras vos.</Aviso>
+              ) : (
+                <>
+                  {sumaPct > 100 && (
+                    <Aviso tipo="error">
+                      Los contratos suman {comoPct(sumaPct)}: cobrás de más. Revisá cada contrato.
+                    </Aviso>
+                  )}
+                  {base > 0 && (
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="text-[11px] font-medium uppercase tracking-wide text-tenue">
                           <th className="py-1 text-left font-medium">Inquilino</th>
-                          <th className="py-1 text-right font-medium">Prorrateo</th>
+                          <th className="py-1 text-right font-medium">Parte</th>
                           <th className="py-1 text-right font-medium">Le toca</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {vigentes.map((c) => (
-                          <tr key={c.contrato.id} className="border-t border-linea">
+                        {contratosMes.map(({ cc, parte }) => (
+                          <tr key={cc.contrato.id} className="border-t border-linea">
                             <td className="py-2 pr-2">
-                              <span className="font-medium">{c.contrato.inquilino}</span>
-                              {c.propiedad && (
-                                <span className="block text-[11px] text-tenue">
-                                  {c.propiedad.nombre}
-                                </span>
+                              <span className="font-medium">{cc.contrato.inquilino}</span>
+                              {cc.propiedad && (
+                                <span className="block text-[11px] text-tenue">{cc.propiedad.nombre}</span>
                               )}
                             </td>
                             <td className="tabular py-2 text-right text-xs text-suave">
-                              {comoPct(c.contrato.prorrateo_pct)}
+                              {comoPct(cc.contrato.prorrateo_pct)}
                             </td>
                             <td className="tabular py-2 text-right font-semibold">
-                              {plataExacta((baseReparto * c.contrato.prorrateo_pct) / 100)}
+                              <Monto valor={parte} />
                             </td>
                           </tr>
                         ))}
-                        {restaPct > 0 && (
+                        {vos >= 1 && (
                           <tr className="border-t border-linea">
-                            <td className="py-2 pr-2 text-suave">Lo que queda para vos</td>
+                            <td className="py-2 pr-2 text-suave">Vos</td>
                             <td className="tabular py-2 text-right text-xs text-suave">
-                              {comoPct(restaPct)}
+                              {comoPct(redondear((vos / base) * 100, 1))}
                             </td>
                             <td className="tabular py-2 text-right font-semibold text-suave">
-                              {plataExacta((baseReparto * restaPct) / 100)}
+                              <Monto valor={vos} />
                             </td>
                           </tr>
                         )}
                       </tbody>
                       <tfoot>
                         <tr className="border-t border-borde">
-                          <td className="py-2 pr-2 text-xs font-semibold">Total de las boletas</td>
+                          <td className="py-2 pr-2 text-xs font-semibold">Total</td>
                           <td />
                           <td className="tabular py-2 text-right text-xs font-semibold">
-                            {plataExacta(baseReparto)}
+                            <Monto valor={base} />
                           </td>
                         </tr>
                       </tfoot>
                     </table>
-                  </>
-                )}
-              </div>
-            </Card>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </Card>
 
-            {aparte.length > 0 && (
-              <Card
-                titulo="Boletas que no entran en la grilla"
-                nota="Son de una propiedad puntual, o quedaron dos del mismo tipo en el mismo mes. Se reparten igual."
-              >
-                <ul className="divide-y divide-linea">
-                  {aparte.map((g) => (
-                    <FilaGasto
-                      key={g.id}
-                      g={g}
-                      propiedad={g.propiedad_id ? nombrePropiedad(g.propiedad_id) : "Todas las propiedades"}
-                      puedeEditar={puedeEditar}
-                      porBorrar={porBorrar === g.id}
-                      borrando={borrando === g.id}
-                      alEditar={() => abrirEdicion(g)}
-                      alPedirBorrar={() => pedirBorrar(g.id)}
-                      alBorrar={() => borrar(g.id)}
-                    />
+        {/* Compu: el año entero. */}
+        <Card className="hidden sm:block" titulo={`Todo ${anio}`} nota="El total de cada boleta. Se guarda solo.">
+          <div className="scroll-x">
+            <table className="w-full table-fixed border-separate border-spacing-0">
+              <thead>
+                <tr>
+                  <th className="sticky left-0 z-10 w-[150px] border-b border-borde bg-papel px-5 py-2 text-left text-[11px] font-medium uppercase tracking-wide text-tenue">
+                    Servicio
+                  </th>
+                  {MESES.map((m, i) => {
+                    const periodo = `${anio}-${MESES_NUM[i]}`;
+                    const elegido = periodo === mes;
+                    return (
+                      <th key={m} className="w-[64px] border-b border-borde bg-papel px-0.5 py-1 text-right">
+                        {/* Tocar el mes elige ese mes: el reparto de arriba lo sigue. */}
+                        <button
+                          type="button"
+                          onClick={() => setMes(periodo)}
+                          aria-pressed={elegido}
+                          aria-label={`Ver ${periodoLargo(periodo)}`}
+                          className={`w-full rounded-md px-1.5 py-1 text-right text-[11px] font-medium transition-colors ${
+                            elegido ? "bg-acento-claro text-acento" : "text-tenue hover:bg-celeste-claro hover:text-tinta"
+                          }`}
+                        >
+                          {m}
+                        </button>
+                      </th>
+                    );
+                  })}
+                  <th className="w-[96px] border-b border-borde bg-papel px-3 py-2 text-right text-[11px] font-medium uppercase tracking-wide text-tenue">
+                    Año
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {tipos.map((tipo) => (
+                  <tr key={tipo} className="fila-hover">
+                    <th
+                      scope="row"
+                      title={ETIQUETA_GASTO[tipo]}
+                      className="sticky left-0 z-10 truncate border-b border-linea bg-papel px-5 py-1 text-left text-xs font-medium"
+                    >
+                      {ETIQUETA_GASTO[tipo]}
+                    </th>
+                    {MESES_NUM.map((mm) => (
+                      <td key={mm} className="border-b border-linea px-0.5 py-1">
+                        {celda(tipo, `${anio}-${mm}`, "grilla")}
+                      </td>
+                    ))}
+                    <td className="tabular border-b border-linea px-3 py-1 text-right text-xs font-semibold">
+                      {totalFila(tipo) > 0 ? <Monto valor={totalFila(tipo)} /> : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th
+                    scope="row"
+                    className="sticky left-0 z-10 bg-fondo px-5 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-suave"
+                  >
+                    Total
+                  </th>
+                  {totalesMes.map((t, i) => (
+                    <td
+                      key={MESES_NUM[i]}
+                      className="tabular bg-fondo px-1.5 py-2 text-right text-[11px] font-semibold text-suave"
+                    >
+                      {t > 0 ? <Monto valor={t} /> : "—"}
+                    </td>
                   ))}
-                </ul>
-              </Card>
-            )}
+                  <td className="tabular bg-fondo px-3 py-2 text-right text-xs font-semibold">
+                    {totalAnio > 0 ? <Monto valor={totalAnio} /> : "—"}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
+        </Card>
+
+        {aparteDelAnio.length > 0 && (
+          <Card titulo="Otras boletas" nota="Se reparten igual.">
+            {errorLista && (
+              <div className="px-4 pt-3 sm:px-5">
+                <Aviso tipo="error">{errorLista}</Aviso>
+              </div>
+            )}
+            <ul className="divide-y divide-linea">
+              {aparteDelAnio.map((g) => (
+                <FilaBoleta
+                  key={g.id}
+                  g={g}
+                  propiedad={g.propiedad_id ? nombrePropiedad(g.propiedad_id) : "Todas las propiedades"}
+                  puedeEditar={puedeEditar}
+                  porBorrar={porBorrar === g.id}
+                  borrando={borrando === g.id}
+                  alEditar={() => abrirEdicion(g)}
+                  alPedirBorrar={() => pedirBorrar(g.id)}
+                  alBorrar={() => borrar(g.id)}
+                />
+              ))}
+            </ul>
+          </Card>
+        )}
       </div>
 
       {abierto && (
@@ -491,6 +481,7 @@ export default function GastosPage() {
           abierto={abierto}
           cerrar={cerrarForm}
           gasto={editando ?? undefined}
+          inicial={editando ? undefined : { periodo: mes }}
           propiedades={propiedades}
           alDeGuardar={() => {
             recargar();
@@ -503,32 +494,44 @@ export default function GastosPage() {
 }
 
 /**
- * Celda de la grilla. Guarda al salir del campo o con Enter, y sólo si el
- * importe cambió. Con Escape vuelve a lo que había y no guarda nada.
+ * Un importe editable en el lugar. Guarda al salir del campo o con Enter, y
+ * sólo si cambió. Con Escape vuelve a lo que había y no guarda nada. Con el
+ * ojito cerrado muestra puntitos hasta que lo tocás.
  */
 function CeldaMes({
   valor,
   estado,
   deshabilitado,
   etiqueta,
+  variante,
   alGuardar,
 }: {
   valor: string;
   estado?: EstadoCelda;
   deshabilitado: boolean;
   etiqueta: string;
+  /** "grilla": sin borde hasta que lo tocás. "campo": un campo de verdad, para el dedo. */
+  variante: "grilla" | "campo";
   alGuardar: (v: string) => void;
 }) {
   const [texto, setTexto] = useState(valor);
-  const enfocado = useRef(false);
+  const [previo, setPrevio] = useState(valor);
+  const [enfocado, setEnfocado] = useState(false);
   const cancelado = useRef(false);
+  const [oculto] = usePrivado();
 
   // Mientras tenés el cursor adentro, una revalidación de SWR no te tiene que
-  // mover el número abajo de los dedos.
-  useEffect(() => {
-    if (!enfocado.current) setTexto(valor);
-  }, [valor]);
+  // mover el número abajo de los dedos. Afuera, el campo sigue a lo guardado.
+  if (valor !== previo && !enfocado) {
+    setPrevio(valor);
+    setTexto(valor);
+  }
+  const mostrado = !enfocado && oculto && texto ? "••••" : texto;
 
+  const reposo =
+    variante === "grilla"
+      ? "border-transparent hover:border-borde"
+      : "border-borde bg-papel";
   const borde =
     estado === "guardando"
       ? "border-acento/40 bg-acento-claro"
@@ -536,22 +539,21 @@ function CeldaMes({
         ? "border-ok bg-ok-claro"
         : estado === "error"
           ? "border-peligro bg-peligro-claro"
-          : "border-transparent hover:border-borde focus:border-acento focus:bg-papel focus:ring-2 focus:ring-acento/15";
+          : `${reposo} focus:border-acento focus:bg-papel focus:ring-2 focus:ring-acento/15`;
+  const tam = variante === "grilla" ? "h-11 rounded-md px-1.5 text-sm sm:h-9 sm:text-xs" : "h-11 rounded-xl px-3";
 
   return (
     <input
-      value={texto}
+      value={mostrado}
       inputMode="decimal"
       autoComplete="off"
       aria-label={etiqueta}
       disabled={deshabilitado}
       placeholder="—"
-      onFocus={() => {
-        enfocado.current = true;
-      }}
+      onFocus={() => setEnfocado(true)}
       onChange={(e) => setTexto(e.target.value)}
       onBlur={() => {
-        enfocado.current = false;
+        setEnfocado(false);
         if (cancelado.current) {
           cancelado.current = false;
           setTexto(valor);
@@ -569,12 +571,12 @@ function CeldaMes({
           e.currentTarget.blur();
         }
       }}
-      className={`tabular h-9 w-full rounded-md border px-1.5 text-right text-sm outline-none transition-colors placeholder:text-tenue/60 disabled:bg-transparent sm:text-xs ${borde}`}
+      className={`tabular w-full border text-right outline-none transition-colors placeholder:text-tenue/60 disabled:bg-transparent ${tam} ${borde}`}
     />
   );
 }
 
-function FilaGasto({
+function FilaBoleta({
   g,
   propiedad,
   puedeEditar,
@@ -585,7 +587,7 @@ function FilaGasto({
   alBorrar,
 }: {
   g: Gasto;
-  propiedad: string;
+  propiedad: ReactNode;
   puedeEditar: boolean;
   porBorrar: boolean;
   borrando: boolean;
@@ -602,28 +604,25 @@ function FilaGasto({
         </p>
         <p className="mt-0.5 text-[11px] text-suave">
           {propiedad}
-          {g.fecha && ` · pagado el ${fechaCorta(g.fecha)}`}
+          {g.fecha && ` · pagada el ${fechaCorta(g.fecha)}`}
         </p>
         {g.nota && <p className="mt-1 text-[11px] leading-snug text-tenue">{g.nota}</p>}
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        <span className="tabular text-sm font-semibold">{plata(g.monto)}</span>
+        <span className="tabular text-sm font-semibold">
+          <Monto valor={g.monto} />
+        </span>
         {puedeEditar && (
           <>
-            <Boton variante="fantasma" tamano="icono" onClick={alEditar} aria-label="Editar gasto">
+            <Boton variante="fantasma" tamano="icono" onClick={alEditar} aria-label="Editar boleta">
               <IconoLapiz />
             </Boton>
             {porBorrar ? (
-              <Boton variante="peligro" tamano="sm" onClick={alBorrar} disabled={borrando}>
+              <Boton variante="peligro" tamano="sm" className="min-h-11 sm:min-h-9" onClick={alBorrar} disabled={borrando}>
                 {borrando ? "Borrando…" : "¿Seguro?"}
               </Boton>
             ) : (
-              <Boton
-                variante="peligro"
-                tamano="icono"
-                onClick={alPedirBorrar}
-                aria-label="Borrar gasto"
-              >
+              <Boton variante="peligro" tamano="icono" onClick={alPedirBorrar} aria-label="Borrar boleta">
                 <IconoTacho />
               </Boton>
             )}

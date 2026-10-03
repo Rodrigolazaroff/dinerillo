@@ -10,9 +10,9 @@ type EventoInstalar = Event & {
 };
 
 const PASOS_IOS = [
-  "Tocá el botón Compartir de Safari, abajo en el medio de la pantalla.",
-  "Bajá en la lista y elegí «Agregar a pantalla de inicio».",
-  "Tocá «Agregar» arriba a la derecha y ya te queda el icono.",
+  "Tocá Compartir en Safari.",
+  "Elegí «Agregar a pantalla de inicio».",
+  "Tocá «Agregar».",
 ];
 
 /** No renderiza nada: sólo engancha (o saca) el service worker. */
@@ -141,7 +141,7 @@ export function BotonInstalar({ className = "" }: { className?: string }) {
         >
           <path d="M4 10.5l4 4 8-9" />
         </svg>
-        Ya está instalada en este dispositivo
+        Ya está instalada
       </p>
     );
   }
@@ -174,7 +174,7 @@ export function BotonInstalar({ className = "" }: { className?: string }) {
           <path d="M10 3v9m0 0l3.5-3.5M10 12L6.5 8.5" />
           <path d="M4 14v1.5A1.5 1.5 0 005.5 17h9a1.5 1.5 0 001.5-1.5V14" />
         </svg>
-        Instalar en el celular
+        Instalar
       </Boton>
     );
   }
@@ -182,10 +182,7 @@ export function BotonInstalar({ className = "" }: { className?: string }) {
   if (esIOS) {
     return (
       <div className={`rounded-lg border border-borde bg-papel p-3 ${className}`}>
-        <p className="text-xs font-semibold tracking-tight text-tinta">
-          Para tenerla como app en el iPhone
-        </p>
-        <ol className="mt-2.5 flex flex-col gap-2">
+        <ol className="flex flex-col gap-2">
           {PASOS_IOS.map((paso, i) => (
             <li key={paso} className="flex items-start gap-2 text-xs leading-relaxed text-suave">
               <span className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-acento-claro text-[11px] font-semibold text-acento">
@@ -196,8 +193,7 @@ export function BotonInstalar({ className = "" }: { className?: string }) {
           ))}
         </ol>
         <p className="mt-2.5 text-[11px] leading-snug text-tenue">
-          En iPhone esto sólo anda desde Safari. Si estás en Chrome no te va a aparecer la
-          opción: abrí Dinerillo en Safari y recién ahí seguí los pasos.
+          Solo funciona desde Safari.
         </p>
       </div>
     );
@@ -205,8 +201,7 @@ export function BotonInstalar({ className = "" }: { className?: string }) {
 
   return (
     <p className={`text-xs leading-relaxed text-tenue ${className}`}>
-      Desde este navegador no se puede instalar. Abrí Dinerillo en el celular, con Chrome en
-      Android o Safari en iPhone, y ahí te va a aparecer la opción.
+      Abrila en el celular para instalarla.
     </p>
   );
 }

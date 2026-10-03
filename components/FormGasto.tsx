@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import {
   Aviso, Boton, Campo, Input, InputPlata, Panel, Select, Textarea,
 } from "@/components/ui";
-import { pct, periodoActual, plata, redondear } from "@/lib/format";
+import { aCampo, aNumero, pct, periodoActual, plata, redondear } from "@/lib/format";
 import { TIPOS_GASTO } from "@/lib/schemas";
 import type { Gasto, Propiedad, TipoGasto } from "@/lib/types";
 import { enviar, useData } from "@/lib/useData";
@@ -20,38 +20,6 @@ export const ETIQUETA_GASTO: Record<TipoGasto, string> = {
   abl: "ABL",
   otro: "Otro",
 };
-
-// El importe se escribe y se lee igual en el formulario y en la grilla de
-// meses, así que las dos conversiones viven acá y las importa la pantalla. No
-// hay un lib para esto y duplicarlas es pedir que se separen con el tiempo.
-
-const nfCampo = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 2 });
-
-/** Un número como se ve dentro de un campo editable: "17.872,66". */
-export function aCampo(n: number): string {
-  return Number.isFinite(n) ? nfCampo.format(n) : "";
-}
-
-/**
- * Lee un importe tipeado a mano. Acepta "17.872,66", "17872,66" y "17872.66".
- * Devuelve NaN si no hay nada parseable, para poder distinguir un campo vacío
- * de un cero cargado a propósito.
- */
-export function aNumero(crudo: string): number {
-  const s = crudo.replace(/[^\d,.-]/g, "").trim();
-  if (!s) return NaN;
-  const coma = s.includes(",");
-  const punto = s.includes(".");
-  let normal = s;
-  if (coma && punto) normal = s.replace(/\./g, "").replace(",", ".");
-  else if (coma) normal = s.replace(",", ".");
-  // Un punto solo es ambiguo: en "17.872" separa miles, en "17.87" son
-  // centavos. Si los grupos son de tres dígitos gana la lectura de miles,
-  // que es como se escribe la plata acá.
-  else if (punto && /^-?\d{1,3}(\.\d{3})+$/.test(s)) normal = s.replace(/\./g, "");
-  const n = Number(normal);
-  return Number.isFinite(n) ? n : NaN;
-}
 
 /** "50" -> "50%", "33.5" -> "33,5%" */
 const comoPct = (n: number) => pct(n / 100, Number.isInteger(n) ? 0 : 1);
@@ -153,21 +121,21 @@ function FormGastoAbierto({
   const monto = aNumero(b.monto);
 
   const hintImporte = vigentes.length === 0
-      ? "Cargá el total de la boleta. No hay contratos vigentes: por ahora la estás poniendo entera."
-      : `Cargá el total de la boleta. Cada inquilino paga su parte: ${vigentes
+      ? "Sin contratos vigentes: la pagás entera vos."
+      : vigentes
           .map((c) => {
             const parte = c.contrato.prorrateo_pct / 100;
             return `${c.contrato.inquilino} ${
               Number.isFinite(monto) ? plata(monto * parte) : comoPct(c.contrato.prorrateo_pct)
             }`;
           })
-          .join(" · ")}`;
+          .join(" · ");
 
   async function guardar(e: FormEvent) {
     e.preventDefault();
     if (guardando) return;
     if (!Number.isFinite(monto)) {
-      setError("Poné el importe de la boleta.");
+      setError("Poné el importe.");
       return;
     }
     if (monto < 0) {
@@ -199,7 +167,7 @@ function FormGastoAbierto({
     <Panel
       abierto={abierto}
       cerrar={cerrar}
-      titulo={gasto ? "Editar gasto" : "Cargar gasto"}
+      titulo={gasto ? "Editar boleta" : "Nueva boleta"}
       pie={
         <div className="flex flex-col gap-2">
           {error && <Aviso tipo="error">{error}</Aviso>}
@@ -210,7 +178,7 @@ function FormGastoAbierto({
             {/* El botón vive en el pie del panel, fuera del <form>: `form` lo
                 vuelve a atar, así se dispara la validación del navegador. */}
             <Boton type="submit" form={ID_FORM} className="flex-[2]" disabled={guardando}>
-              {guardando ? "Guardando…" : gasto ? "Guardar cambios" : "Cargar gasto"}
+              {guardando ? "Guardando…" : gasto ? "Guardar cambios" : "Cargar boleta"}
             </Boton>
           </div>
         </div>
@@ -233,7 +201,7 @@ function FormGastoAbierto({
         </Campo>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Campo label="Período" hint="El mes al que corresponde la boleta.">
+          <Campo label="Mes">
             <Input
               type="month"
               value={b.periodo}
@@ -252,10 +220,7 @@ function FormGastoAbierto({
           </Campo>
         </div>
 
-        <Campo
-          label="Propiedad"
-          hint="Dejalo en 'todas' si es una sola boleta para todo, como un único medidor de agua."
-        >
+        <Campo label="Propiedad">
           <Select value={b.propiedad_id} onChange={(e) => set("propiedad_id", e.target.value)}>
             <option value="">Todas las propiedades</option>
             {propiedades.map((p) => (
@@ -266,15 +231,15 @@ function FormGastoAbierto({
           </Select>
         </Campo>
 
-        <Campo label="Fecha de pago" hint="Opcional. Cuándo la pagaste.">
+        <Campo label="La pagaste el (opcional)">
           <Input type="date" value={b.fecha} onChange={(e) => set("fecha", e.target.value)} />
         </Campo>
 
-        <Campo label="Nota" hint="Opcional.">
+        <Campo label="Nota (opcional)">
           <Textarea
             value={b.nota}
             onChange={(e) => set("nota", e.target.value)}
-            placeholder="Vencimiento, número de boleta, lo que sirva después."
+            placeholder="Ej: vencimiento, n.º de boleta"
             maxLength={500}
           />
         </Campo>

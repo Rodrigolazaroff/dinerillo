@@ -37,8 +37,7 @@ export default function Offline() {
         <h1 className="mt-4 text-base font-semibold tracking-tight text-tinta">Sin conexión</h1>
 
         <p className="mt-2 text-sm leading-relaxed text-suave">
-          Tus datos viven en la nube, así que sin red no hay nada
-          para mostrar. Fijate el wifi o los datos del celular y probá de nuevo.
+          Fijate el wifi o los datos y probá de nuevo.
         </p>
 
         {/* Link duro y no next/link: acá lo que hace falta es un recargado real. */}

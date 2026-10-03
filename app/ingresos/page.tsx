@@ -13,6 +13,7 @@ import { Aviso, Boton, Card, Cargando, Vacio } from "@/components/ui";
 import { emojiDe } from "@/lib/emoji";
 import { ID_ALQUILERES } from "@/lib/finanzas";
 import { enMoneda } from "@/lib/format";
+import { usaAlquileres } from "@/lib/useData";
 import { useFinanzas } from "@/lib/useFinanzas";
 
 // Todo lo que entra, fuente por fuente. Alquileres figura acá porque es un
@@ -43,7 +44,7 @@ export default function Ingresos() {
   const archivadas = fuentes.filter((i) => i.archivado_at);
   const delMes = new Map(resumen.ingresos.lineas.map((l) => [l.id, l]));
   const alquileres = delMes.get(ID_ALQUILERES);
-  const hayAlquileres = (data.calculados ?? []).length > 0;
+  const hayAlquileres = usaAlquileres(data);
 
   return (
     <Shell>
@@ -55,32 +56,24 @@ export default function Ingresos() {
 
         <section className="relative overflow-hidden rounded-2xl bg-acento px-5 py-5 text-white">
           <Emoji nombre="bolsa-plata" tamano="xxl" className="pop pointer-events-none absolute -right-1 -top-1 h-20 w-20 rotate-12" />
-          <p className="text-sm font-medium text-white/80">Entró este mes</p>
+          <p className="text-sm font-medium text-white/80">Entró</p>
           <p className="numero mt-2 text-[2.6rem] font-extrabold">
             <Monto valor={resumen.ingresos.total} animado />
           </p>
           <p className="mt-3 flex items-center gap-1.5 text-xs text-white/90">
             <Emoji nombre="brote" tamano="xs" />
-            Ahorro sugerido {prefs.ahorroPct}% ·{" "}
+            Meta de ahorro {prefs.ahorroPct}% ·{" "}
             <span className="tabular font-semibold text-white">
               <Monto valor={resumen.ahorroSugerido} />
             </span>
           </p>
         </section>
 
-        <Card
-          titulo="Tus ingresos"
-          accion={
-            <Boton onClick={() => setNuevo(true)}>
-              <IconoMas />
-              Nuevo ingreso
-            </Boton>
-          }
-        >
+        <Card>
           {!hayAlquileres && activas.length === 0 ? (
             <Vacio
               emoji="bolsa-plata"
-              titulo="Todavía no cargaste ingresos"
+              titulo="¿De dónde sale tu plata?"
               accion={
                 <Boton onClick={() => setNuevo(true)}>
                   <IconoMas />
@@ -88,8 +81,7 @@ export default function Ingresos() {
                 </Boton>
               }
             >
-              Creá uno por cada cosa que te deja plata: el sueldo, una consultoría, lo de redes. Después
-              le vas cargando lo que cobrás.
+              Sueldo, consultoría, redes: uno por cada cosa.
             </Vacio>
           ) : (
             <ul className="divide-y divide-linea">
@@ -99,15 +91,11 @@ export default function Ingresos() {
                     <BurbujaEmoji nombre="llave" tono="azul" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">Alquileres</p>
-                      <p className="text-[11px] text-tenue">
-                        Neto de comisión, sin los reintegros
-                        {resumen.ingresos.alquileresPorCobrar > 0 && (
-                          <>
-                            {" · "}
-                            falta cobrar <Monto valor={resumen.ingresos.alquileresPorCobrar} />
-                          </>
-                        )}
-                      </p>
+                      {resumen.ingresos.alquileresPorCobrar > 0 && (
+                        <p className="text-[11px] text-tenue">
+                          falta cobrar <Monto valor={resumen.ingresos.alquileresPorCobrar} />
+                        </p>
+                      )}
                     </div>
                     <span className="tabular text-sm font-semibold">
                       <Monto valor={alquileres?.pesos ?? 0} />
@@ -129,7 +117,7 @@ export default function Ingresos() {
                             ? `${l.cobros} ${l.cobros === 1 ? "cobro" : "cobros"}${
                                 f.moneda !== "ARS" ? ` · ${enMoneda(l.original, f.moneda)}` : ""
                               }`
-                            : "Nada este mes"}
+                            : "Sin cobros"}
                         </p>
                       </div>
                       <span className={`tabular text-sm font-semibold ${l ? "" : "text-tenue"}`}>
@@ -140,6 +128,18 @@ export default function Ingresos() {
                   </li>
                 );
               })}
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setNuevo(true)}
+                  className="flex min-h-14 w-full items-center gap-3 px-4 text-sm font-semibold text-acento transition-colors hover:bg-celeste-claro sm:px-5"
+                >
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-dashed border-celeste">
+                    <IconoMas />
+                  </span>
+                  Nuevo ingreso
+                </button>
+              </li>
             </ul>
           )}
         </Card>

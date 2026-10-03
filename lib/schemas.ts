@@ -103,7 +103,20 @@ export const gastoSchema = z.object({
   nota: z.string().trim().max(500).default(""),
 });
 
-export const configSchema = z.record(z.string(), z.string());
+/**
+ * Las claves de `ajustes` que la app conoce. Cualquiera se puede crear una
+ * cuenta: sin lista blanca, el endpoint guardaría lo que le manden.
+ */
+export const CLAVES_AJUSTES = [
+  "nombre", "onboarding", "ahorro_pct", "divide", "pareja_nombre", "div_mi_pct", "alquileres",
+  "def_aumento_pct", "def_aumento_meses", "def_meses", "def_comision_pct",
+  "def_mora_pct_diario", "def_dia_vencimiento", "def_prorrateo_pct",
+] as const;
+
+export const configSchema = z.partialRecord(
+  z.enum(CLAVES_AJUSTES, { error: "Ese ajuste no existe" }),
+  z.string().trim().max(120, "Muy largo")
+);
 
 export type PropiedadInput = z.infer<typeof propiedadSchema>;
 export type ContratoInput = z.infer<typeof contratoSchema>;

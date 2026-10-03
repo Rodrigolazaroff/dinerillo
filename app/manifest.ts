@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Dinerillo",
     short_name: "Dinerillo",
-    description: "Tu plata del mes: ingresos, gastos, alquileres y lo que dividís en pareja.",
+    description: "Tu plata del mes en un solo lugar: lo que entra, lo que sale y lo que dividís.",
     start_url: "/",
     scope: "/",
     display: "standalone",
@@ -30,13 +30,6 @@ export default function manifest(): MetadataRoute.Manifest {
         short_name: "Gasto",
         description: "Anotar un gasto tuyo.",
         url: "/gastos?nuevo=1",
-        icons: [{ src: "/icons/icono-192.png?v=2", sizes: "192x192", type: "image/png" }],
-      },
-      {
-        name: "Gasto compartido",
-        short_name: "Compartido",
-        description: "Anotar un gasto para dividir.",
-        url: "/division?nuevo=1",
         icons: [{ src: "/icons/icono-192.png?v=2", sizes: "192x192", type: "image/png" }],
       },
     ],

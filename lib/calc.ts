@@ -71,11 +71,15 @@ export interface Resumen {
   anio: {
     bruto: number; comision: number; neto: number; cobrado: number;
   };
+  /**
+   * Lo que de verdad pasó en el año hasta el mes en curso: nada proyectado.
+   * `neto` es lo que entró menos el reintegro de boletas, la misma cuenta que
+   * hace Ingresos mes a mes; la comisión es la de las cuotas que se cobraron.
+   */
+  anioALaFecha: { neto: number; comision: number; cobrado: number };
   historico: { esperado: number; cobrado: number; comision: number };
   porPeriodo: FilaPeriodo[];
   proximos: { cuota: Cuota; contrato: Contrato; propiedad: Propiedad | null }[];
-  escalera: Record<string, number | string>[];
-  seriesEscalera: string[];
   contratosVigentes: number;
   propiedadesConContrato: number;
 }
@@ -216,6 +220,32 @@ export function calcularContrato(
   };
 }
 
+export interface Aumento {
+  periodo: string;
+  bruto: number;
+  antes: number;
+  /** En puntos: 15 = +15%, redondeado a un decimal. */
+  pct: number;
+}
+
+/**
+ * El próximo mes en que sube el alquiler, contra lo que se paga en `periodo`.
+ * Si el contrato todavía no arrancó, contra la primera cuota. Un importe fijado
+ * a mano cuenta: es lo que se va a cobrar.
+ */
+export function proximoAumento(cc: ContratoCalculado, periodo: string): Aumento | null {
+  const base = cc.cuotas.find((q) => q.periodo === periodo) ?? (cc.estado === "por_empezar" ? cc.cuotas[0] : null);
+  if (!base || base.bruto <= 0) return null;
+  const salto = cc.cuotas.find((q) => q.periodo > base.periodo && q.bruto > base.bruto + TOLERANCIA);
+  if (!salto) return null;
+  return {
+    periodo: salto.periodo,
+    bruto: salto.bruto,
+    antes: base.bruto,
+    pct: Math.round((salto.bruto / base.bruto - 1) * 1000) / 10,
+  };
+}
+
 export function calcular(
   propiedades: Propiedad[],
   contratos: Contrato[],
@@ -263,20 +293,8 @@ export function calcular(
 
   const netoAnio = redondear(delAnio.reduce((a, q) => a + q.neto, 0));
   const cobradoAnio = redondear(delAnio.reduce((a, q) => a + q.cobrado, 0));
-
-  // La escalera de aumentos: una serie por contrato, para el grafico.
-  const nombreSerie = (cc: ContratoCalculado) =>
-    cc.propiedad?.nombre || cc.contrato.inquilino || "Contrato";
-  const seriesEscalera = [...new Set(calculados.map(nombreSerie))];
-  const periodos = [...new Set(calculados.flatMap((c) => c.cuotas.map((q) => q.periodo)))].sort();
-  const escalera = periodos.map((periodo) => {
-    const fila: Record<string, number | string> = { periodo };
-    for (const cc of calculados) {
-      const q = cc.cuotas.find((x) => x.periodo === periodo);
-      if (q) fila[nombreSerie(cc)] = q.bruto;
-    }
-    return fila;
-  });
+  // Un mes cobrado por adelantado todavía no es de este año "a la fecha".
+  const aLaFecha = delAnio.filter((q) => q.periodo <= pActual && q.cobrado > 0);
 
   const proximos = calculados
     .flatMap((cc) =>
@@ -305,6 +323,11 @@ export function calcular(
         neto: netoAnio,
         cobrado: cobradoAnio,
       },
+      anioALaFecha: {
+        neto: redondear(aLaFecha.reduce((a, q) => a + Math.max(0, q.cobrado - q.reintegro), 0)),
+        comision: redondear(aLaFecha.reduce((a, q) => a + q.comision, 0)),
+        cobrado: redondear(aLaFecha.reduce((a, q) => a + q.cobrado, 0)),
+      },
       historico: {
         esperado: redondear(todas.reduce((a, q) => a + q.esperado, 0)),
         cobrado: redondear(todas.reduce((a, q) => a + q.cobrado, 0)),
@@ -312,8 +335,6 @@ export function calcular(
       },
       porPeriodo,
       proximos,
-      escalera,
-      seriesEscalera,
       contratosVigentes: calculados.filter((c) => c.vigente).length,
       propiedadesConContrato: new Set(
         calculados.filter((c) => c.vigente).map((c) => c.contrato.propiedad_id)

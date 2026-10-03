@@ -109,11 +109,13 @@ body {
  * corrida. Con 16px en celular no se dispara; de tablet para arriba volvemos a
  * 14px, que es lo que pide el diseño.
  */
-@media (max-width: 639px) {
-  input,
-  select,
-  textarea {
-    font-size: 16px;
+@layer base {
+  @media (max-width: 639px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
   }
 }
 
@@ -129,15 +131,26 @@ body {
   animation: aparecer 200ms var(--ease-salida) both;
 }
 
+/* El diálogo aparece en el lugar, apenas más chico: no viaja por la pantalla. */
 @keyframes entrar-panel {
   from {
-    transform: translateY(12px);
+    transform: scale(0.96);
     opacity: 0;
   }
 }
 
 .panel-entra {
-  animation: entrar-panel 220ms var(--ease-salida) both;
+  animation: entrar-panel 200ms var(--ease-salida) both;
+}
+
+@keyframes entrar-fondo {
+  from {
+    opacity: 0;
+  }
+}
+
+.fondo-entra {
+  animation: entrar-fondo 200ms var(--ease-salida) both;
 }
 
 /* En touch el :hover se dispara al tocar y queda pegado. */

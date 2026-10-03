@@ -82,7 +82,7 @@ console.log("\n=== el ajuste ya transferido no avisa más ===");
     { ...base, id: "d1", fecha: "2026-10-05", periodo: "2026-10", descripcion: "Super", monto: 100000, pago: "yo", mi_pct: 50, categoria_id: "" },
   ];
   const conDeuda = f.avisos({ ...vacio, divGastos: div, config: { pareja_nombre: "Nahi" } }, "2026-10", "2026-10-20");
-  chequeo("avisa que te deben", conDeuda.map((a) => a.texto), ["Nahi te debe $ 50.000 este mes"]);
+  chequeo("avisa que te deben", conDeuda.map((a) => a.texto), ["Nahi te debe $ 50.000"]);
   const cerrado = f.avisos({
     ...vacio, divGastos: div,
     divCierres: [{ ...base, id: "c", periodo: "2026-10", monto: 50000, fecha: "2026-10-31" }],

@@ -23,7 +23,7 @@ export interface DataResponse {
   condiciones: CondicionesDefault;
   calculados: ContratoCalculado[];
   resumen: Resumen;
-  sesion: { usuario: string; rol: Rol };
+  sesion: { usuario: string; email: string; avatar: string; proveedor: string; rol: Rol };
   hoy: string;
 }
 
@@ -53,6 +53,29 @@ export function useData() {
     recargar: mutate,
     puedeEditar: data?.sesion.rol === "editor",
   };
+}
+
+/** Cómo saludar: el nombre que eligió en Bienvenida, o el de la cuenta. */
+export function nombreVisible(d: DataResponse): string {
+  return (d.config?.nombre ?? "").trim() || d.sesion.usuario;
+}
+
+/** Si ya usó la app antes de que existiera la Bienvenida. */
+export function tieneDatos(d: DataResponse): boolean {
+  return (
+    [d.ingresos, d.misGastos, d.divGastos, d.contratos, d.categorias].some((xs) => (xs ?? []).length > 0) ||
+    Boolean(d.config?.ahorro_pct || d.config?.pareja_nombre)
+  );
+}
+
+/** Alquileres se muestra si dijo que tiene o si ya cargó algún contrato. */
+export function usaAlquileres(d: DataResponse): boolean {
+  return d.config?.alquileres === "si" || (d.contratos ?? []).some((c) => !c.deleted_at);
+}
+
+/** División se muestra salvo que haya dicho que no y no tenga nada cargado. */
+export function usaDivision(d: DataResponse): boolean {
+  return d.config?.divide !== "no" || (d.divGastos ?? []).some((g) => !g.deleted_at);
 }
 
 export type Resultado = { ok: true } | { ok: false; error: string };

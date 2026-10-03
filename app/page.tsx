@@ -14,6 +14,7 @@ import { Shell } from "@/components/Shell";
 import { Aviso, BarraParte, Card, Cargando } from "@/components/ui";
 import type { Aviso as AvisoMes } from "@/lib/finanzas";
 import { periodoLargo, plata } from "@/lib/format";
+import { nombreVisible, usaDivision } from "@/lib/useData";
 import { useFinanzas } from "@/lib/useFinanzas";
 
 // La pantalla de todos los días. Arriba el número que importa (cuánto te
@@ -64,7 +65,8 @@ export default function Inicio() {
   const tasa = r.tasaAhorro;
   const llega = tasa !== null && tasa * 100 >= r.ahorroPct;
   const avance = Math.max(0, Math.min(100, ((tasa ?? 0) * 100 * 100) / Math.max(r.ahorroPct, 1)));
-  const nombre = f.data.sesion.usuario;
+  const nombre = nombreVisible(f.data);
+  const divide = usaDivision(f.data);
   const ingresos = r.ingresos.lineas.filter((l) => l.pesos > 0);
 
   return (
@@ -83,7 +85,7 @@ export default function Inicio() {
             tamano="xxl"
             className="pop pointer-events-none absolute -right-2 -top-1 h-24 w-24 rotate-12 opacity-95"
           />
-          <p className="text-sm font-medium text-white/80">Te quedó en {periodoLargo(f.mes)}</p>
+          <p className="text-sm font-medium text-white/80">Te quedó</p>
           <p className="numero mt-2 text-[2.75rem] font-extrabold sm:text-6xl">
             <Monto valor={r.quedo} animado />
           </p>
@@ -127,12 +129,12 @@ export default function Inicio() {
               <p className="mt-2 flex items-center gap-1.5 text-xs text-white/90">
                 {llega && <Emoji nombre="chispas" tamano="xs" />}
                 {oculto
-                  ? `Ahorro sugerido ${r.ahorroPct}%`
+                  ? `Meta de ahorro ${r.ahorroPct}%`
                   : llega
-                    ? `¡Llegaste! Guardaste el ${Math.round((tasa ?? 0) * 100)}%, la meta era ${r.ahorroPct}%`
+                    ? `¡Llegaste! Guardás ${Math.round((tasa ?? 0) * 100)}% · meta ${r.ahorroPct}%`
                     : tasa !== null && tasa > 0
-                      ? `Vas guardando ${Math.round(tasa * 100)}% · meta ${r.ahorroPct}%, ${plata(r.ahorroSugerido)}`
-                      : `Este mes salió más de lo que entró · meta ${r.ahorroPct}%`}
+                      ? `Guardás ${Math.round(tasa * 100)}% · meta ${r.ahorroPct}% (${plata(r.ahorroSugerido)})`
+                      : `Sin ahorro · meta ${r.ahorroPct}%`}
               </p>
             </div>
           )}
@@ -147,9 +149,11 @@ export default function Inicio() {
               <Atajo emoji="tarjeta" onClick={() => setCargar("propio")}>
                 Gasto
               </Atajo>
-              <Atajo emoji="corazones" onClick={() => setCargar("compartido")}>
-                Compartido
-              </Atajo>
+              {divide && (
+                <Atajo emoji="corazones" onClick={() => setCargar("compartido")}>
+                  Compartido
+                </Atajo>
+              )}
             </>
           }
         />
@@ -197,7 +201,7 @@ export default function Inicio() {
             {ingresos.length === 0 ? (
               <div className="flex flex-col items-center gap-2 px-4 py-6 text-center text-sm text-suave sm:px-5">
                 <Emoji nombre="bolsa-plata" tamano="xl" />
-                Nada cargado este mes.
+                Todavía nada.
                 <Link href="/ingresos" className="font-semibold text-acento">
                   Cargar un ingreso
                 </Link>
@@ -224,7 +228,7 @@ export default function Inicio() {
             {r.gastos.categorias.length === 0 ? (
               <div className="flex flex-col items-center gap-2 px-4 py-6 text-center text-sm text-suave sm:px-5">
                 <Emoji nombre="brote" tamano="xl" />
-                Sin gastos este mes.
+                Cero gastos. ¿Mes austero?
                 <button type="button" onClick={() => setCargar("propio")} className="font-semibold text-acento">
                   Cargar uno
                 </button>
@@ -254,6 +258,7 @@ export default function Inicio() {
       {cargar && (
         <FormMovimiento
           modo={cargar}
+          puedeCompartir={divide}
           abierto
           cerrar={() => setCargar(null)}
           mes={f.mes}

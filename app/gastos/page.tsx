@@ -13,6 +13,7 @@ import { Shell } from "@/components/Shell";
 import { Aviso, BarraParte, Boton, BotonFlotante, Card, Cargando, Vacio } from "@/components/ui";
 import { fechaDia, periodoLargo } from "@/lib/format";
 import type { MiGasto } from "@/lib/types";
+import { usaDivision } from "@/lib/useData";
 import { useFinanzas } from "@/lib/useFinanzas";
 import { usarParametro } from "@/lib/useMes";
 
@@ -65,19 +66,20 @@ export default function Gastos() {
 
         <section className="relative overflow-hidden rounded-2xl bg-celeste-claro px-5 py-5">
           <Emoji nombre="plata-vuela" tamano="xxl" className="pop pointer-events-none absolute -right-1 -top-1 h-20 w-20 rotate-12" />
-          <p className="text-sm font-medium text-suave">Gastaste en {periodoLargo(mes)}</p>
+          <p className="text-sm font-medium text-suave">Gastaste</p>
           <p className="numero mt-2 text-[2.6rem] font-extrabold text-tinta">
             <Monto valor={g.total} animado />
           </p>
-          <p className="mt-2 text-xs text-suave">
-            Tuyos <span className="tabular font-medium text-tinta"><Monto valor={g.propios} /></span>
-            {" · "}
-            tu parte de lo compartido{" "}
-            <span className="tabular font-medium text-tinta"><Monto valor={g.compartidos} /></span>
-          </p>
+          {g.compartidos > 0 && (
+            <p className="mt-2 text-xs text-suave">
+              Tuyos <span className="tabular font-medium text-tinta"><Monto valor={g.propios} /></span>
+              {" · "}
+              compartidos <span className="tabular font-medium text-tinta"><Monto valor={g.compartidos} /></span>
+            </p>
+          )}
           {anterior && anterior.gastos.total > 0 && (
             <p className={`mt-1.5 text-xs font-semibold ${delta > 0 ? "text-espera" : "text-ok"}`}>
-              {delta > 0 ? "▲" : "▼"} <Monto valor={Math.abs(delta)} /> contra {periodoLargo(anterior.periodo)}
+              {delta > 0 ? "▲" : "▼"} <Monto valor={Math.abs(delta)} /> vs. {periodoLargo(anterior.periodo)}
             </p>
           )}
           <Asistente modo="gasto" className="mt-4 [&>*]:flex-1 sm:[&>*]:flex-none" />
@@ -122,10 +124,9 @@ export default function Gastos() {
             >
               <BurbujaEmoji nombre="corazones" tono="azul" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">Gastos compartidos · mi parte</p>
+                <p className="text-sm font-medium">Compartidos con {prefs.pareja || "tu pareja"}</p>
                 <p className="text-[11px] text-tenue">
-                  {resumen.division.cantidad} {resumen.division.cantidad === 1 ? "gasto" : "gastos"} con{" "}
-                  {prefs.pareja || "tu pareja"} · se cargan en División
+                  {resumen.division.cantidad} {resumen.division.cantidad === 1 ? "gasto" : "gastos"} · tu parte
                 </p>
               </div>
               <span className="tabular text-sm font-semibold">
@@ -138,16 +139,14 @@ export default function Gastos() {
           {propios.length === 0 ? (
             <Vacio
               emoji="brote"
-              titulo={resumen.division.cantidad ? "No cargaste gastos tuyos este mes" : "Todavía no hay gastos este mes"}
+              titulo="Cero gastos. ¿Mes austero?"
               accion={
                 <Boton onClick={() => setNuevo(true)}>
                   <IconoMas />
                   Cargar un gasto
                 </Boton>
               }
-            >
-              Monto, en qué fue y listo. Lo que compartís con tu pareja va en División.
-            </Vacio>
+            />
           ) : (
             <div>
               {[...porDia.entries()].map(([dia, xs]) => (
@@ -194,6 +193,7 @@ export default function Gastos() {
         <FormMovimiento
           key={editando?.id ?? "nuevo"}
           modo="propio"
+          puedeCompartir={usaDivision(data)}
           abierto
           cerrar={() => {
             setNuevo(false);

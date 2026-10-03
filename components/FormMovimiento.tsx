@@ -2,15 +2,16 @@
 
 import { useState, type FormEvent } from "react";
 import { ElegirCategoria } from "@/components/Categorias";
-import { aCampo, aNumero } from "@/components/FormGasto";
 import { avisar } from "@/components/Toast";
 import { Aviso, Boton, Campo, Input, InputPct, InputPlata, Panel, Segmentado } from "@/components/ui";
-import { hoyISO, periodoActual, plata, redondear } from "@/lib/format";
+import { aCampo, aNumero, hoyISO, periodoActual, plata, redondear } from "@/lib/format";
 import type { Categoria, DivGasto, MiGasto, QuienPago } from "@/lib/types";
 import { enviar } from "@/lib/useData";
 
 // Un solo formulario para los dos tipos de gasto: el tuyo y el compartido.
-// Lo que cambia en el compartido es quién pagó y qué parte es tuya.
+// Lo que cambia en el compartido es quién pagó y qué parte es tuya. Uno nuevo
+// muestra arriba a cuál va, y se cambia de un toque: si el dictado entendió
+// "compartido" y era tuyo, no hay que empezar de nuevo.
 //
 // El orden es el de la caja del súper: primero el monto, después en qué fue.
 // La fecha arranca en hoy y la categoría en la última que usaste.
@@ -20,11 +21,6 @@ const CLAVE_ULTIMA = "dinerillo:ultima-categoria";
 
 type Modo = "propio" | "compartido";
 
-const PARTES = [
-  { pct: 50, label: "Mitad" },
-  { pct: 100, label: "Todo mío" },
-  { pct: 0, label: "Todo suyo" },
-];
 
 function ultimaCategoria(): string {
   try {
@@ -35,7 +31,8 @@ function ultimaCategoria(): string {
 }
 
 export function FormMovimiento({
-  modo,
+  modo: modoInicial,
+  puedeCompartir = true,
   abierto,
   cerrar,
   gasto,
@@ -48,6 +45,8 @@ export function FormMovimiento({
   recargar,
 }: {
   modo: Modo;
+  /** Si divide gastos con alguien. Si no, ni se ofrece el compartido. */
+  puedeCompartir?: boolean;
   abierto: boolean;
   cerrar: () => void;
   gasto?: MiGasto | DivGasto;
@@ -61,9 +60,15 @@ export function FormMovimiento({
   miPctDefault: number;
   recargar: () => Promise<unknown>;
 }) {
+  const [modo, setModo] = useState<Modo>(modoInicial);
   const compartido = modo === "compartido";
   const div = gasto as DivGasto | undefined;
   const nombrePareja = pareja || "Tu pareja";
+  const partes = [
+    { pct: 50, label: "Mitad" },
+    { pct: 100, label: "Todo tuyo" },
+    { pct: 0, label: `Todo de ${pareja || "tu pareja"}` },
+  ];
 
   const [monto, setMonto] = useState(
     gasto ? aCampo(gasto.monto) : inicial?.monto ? aCampo(inicial.monto) : ""
@@ -86,7 +91,7 @@ export function FormMovimiento({
   const [guardando, setGuardando] = useState(false);
 
   const n = aNumero(monto);
-  const pct = Number(miPct.replace(",", "."));
+  const pct = aNumero(miPct);
   const pctValido = Number.isFinite(pct) && pct >= 0 && pct <= 100;
   const url = compartido ? "/api/division" : "/api/mis-gastos";
 
@@ -95,6 +100,7 @@ export function FormMovimiento({
     if (guardando) return;
     if (!Number.isFinite(n) || n <= 0) return setError("Poné el importe.");
     if (!descripcion.trim()) return setError("Contá en qué fue.");
+    if (compartido && !Number.isFinite(pct)) return setError("Poné tu parte.");
     if (compartido && !pctValido) return setError("Tu parte va de 0 a 100%.");
     setError("");
     setGuardando(true);
@@ -136,11 +142,7 @@ export function FormMovimiento({
     });
   }
 
-  const titulo = gasto
-    ? "Editar gasto"
-    : compartido
-      ? "Gasto compartido"
-      : "Nuevo gasto";
+  const titulo = gasto ? (compartido ? "Editar gasto compartido" : "Editar gasto") : "Nuevo gasto";
 
   return (
     <Panel
@@ -169,15 +171,19 @@ export function FormMovimiento({
     >
       <form id={ID_FORM} onSubmit={guardar} className="flex flex-col gap-4">
         {aviso && <Aviso tipo="info">Revisá: {aviso}</Aviso>}
-        <Campo label="Importe">
-          <InputPlata
-            value={monto}
-            onChange={(e) => setMonto(e.target.value)}
-            placeholder="0"
-            autoFocus={!gasto}
-            className="py-3 text-2xl font-semibold sm:py-2.5 sm:text-2xl"
-            required
+        {!gasto && (puedeCompartir || compartido) && (
+          <Segmentado
+            valor={modo}
+            opciones={[
+              { valor: "propio", label: "Mío" },
+              { valor: "compartido", label: pareja ? `Con ${pareja}` : "Compartido" },
+            ]}
+            onCambio={setModo}
+            className="w-full [&>*]:flex-1 [&>*]:py-2 [&>*]:text-sm"
           />
+        )}
+        <Campo label="Importe">
+          <InputPlata value={monto} onChange={(e) => setMonto(e.target.value)} placeholder="0" grande required />
         </Campo>
 
         <Campo label="En qué fue">
@@ -197,7 +203,7 @@ export function FormMovimiento({
               <Segmentado
                 valor={pago}
                 opciones={[
-                  { valor: "yo", label: "Yo" },
+                  { valor: "yo", label: "Vos" },
                   { valor: "pareja", label: nombrePareja },
                 ]}
                 onCambio={setPago}
@@ -207,7 +213,7 @@ export function FormMovimiento({
             <div className="flex flex-col gap-1.5">
               <span className="text-xs font-medium text-suave">¿Cuánto es tuyo?</span>
               <div className="flex flex-wrap items-center gap-1.5">
-                {PARTES.map((p) => (
+                {partes.map((p) => (
                   <button
                     key={p.pct}
                     type="button"
@@ -224,9 +230,9 @@ export function FormMovimiento({
                 </div>
               </div>
               {Number.isFinite(n) && n > 0 && pctValido && (
-                <p className="tabular text-[11px] text-suave">
-                  Tu parte {plata((n * pct) / 100)} · {nombrePareja} {plata((n * (100 - pct)) / 100)}
-                  {pago === "yo" && pct < 100 && ` · te debe ${plata((n * (100 - pct)) / 100)}`}
+                <p className="tabular text-xs text-suave">
+                  Tu parte {plata((n * pct) / 100)}
+                  {pago === "yo" && pct < 100 && ` · ${nombrePareja} te debe ${plata((n * (100 - pct)) / 100)}`}
                   {pago === "pareja" && pct > 0 && ` · le debés ${plata((n * pct) / 100)}`}
                 </p>
               )}
@@ -249,7 +255,7 @@ export function FormMovimiento({
           </Campo>
         ) : (
           <button type="button" onClick={() => setConNota(true)} className="self-start text-xs font-medium text-acento">
-            + Agregar una nota
+            + Nota
           </button>
         )}
       </form>

@@ -1,8 +1,9 @@
 # Dinerillo
 
-La plata del mes en un solo lugar. Hoy tiene el módulo de **alquileres** (cobros,
-aumentos, boletas que se reparten entre inquilinos). Vienen **ingresos**, **gastos** y
-**división** de gastos con la pareja. Antes se llamaba Rentifay y vivía en una Google Sheet.
+La plata del mes en un solo lugar: **ingresos**, **gastos**, **división** de gastos con
+alguien y, para quien tiene propiedades, **alquileres** (cobros, aumentos, boletas que se
+reparten entre inquilinos). Cualquiera puede crearse una cuenta. Antes se llamaba
+Rentifay y vivía en una Google Sheet.
 
 ## Stack
 
@@ -44,20 +45,35 @@ la sesión y manda al login a quien no la tenga; los endpoints lo vuelven a cheq
 - Supabase → Authentication → URL Configuration: cada dominio donde corra la app tiene
   que estar en *Redirect URLs* (`https://dominio/**`).
 
+**Bienvenida** (`/bienvenida`): una cuenta nueva contesta cuatro preguntas (nombre, de
+dónde le entra la plata, meta de ahorro, si divide gastos) y la app queda armada: crea
+los ingresos elegidos, ocho categorías de base y guarda `onboarding` en `ajustes`. El
+`Shell` manda ahí a quien no tiene `onboarding` ni datos; a quien ya usaba la app lo
+marca `onboarding=previo` en silencio. Cada paso se guarda al seguir.
+
+**Tu cuenta** vive en el avatar de arriba (`components/MenuPerfil.tsx`): nombre, mail,
+Ajustes, instalar y cerrar sesión. El nombre que se muestra es `ajustes.nombre` o, si no
+hay, el primer nombre de la cuenta (`nombreVisible` en `lib/useData.ts`).
+
 ## Módulos y pantallas
 
-Cuatro pestañas abajo (en compu, arriba): **Inicio · Ingresos · Gastos · División**.
-Ajustes vive en el ícono de arriba, junto al ojito que oculta los montos.
+Pestañas abajo (en compu, arriba): **Inicio · Ingresos · Gastos · División**. División
+desaparece si la persona dijo que no divide gastos (`ajustes.divide = "no"`) y no tiene
+ninguno cargado; Alquileres aparece en Ingresos solo si dijo que tiene
+(`ajustes.alquileres = "si"`) o ya cargó un contrato (`usaDivision` / `usaAlquileres` en
+`lib/useData.ts`). Arriba, el ojito que oculta los montos y el avatar con tu cuenta.
 
 - **Inicio** (`/`): lo que te quedó en el mes, entró/salió, el ahorro real contra el
   sugerido, atajos de carga, avisos accionables y el gráfico del año.
 - **Ingresos** (`/ingresos`, `/ingresos/[id]`): fuentes que crea el usuario (nada
   precargado), cada una con su moneda y sus cobros. Alquileres aparece como un ingreso
   más y abre su módulo. Arriba, chiquito, el ahorro sugerido (15% por defecto, editable).
-- **Alquileres** (`/alquileres/...`): Resumen, Cobros, Boletas, Contratos. Las rutas
-  viejas `/cobros` y `/contratos` redirigen.
-- **Gastos** (`/gastos`): los gastos personales + una línea "Gastos compartidos · mi
-  parte" que se calcula desde División (no se copia).
+- **Alquileres** (`/alquileres/...`): tres secciones, **Cobros** (`/alquileres`: lo que
+  falta cobrar, la lista para cobrar, el próximo aumento, lo real del año a la fecha y
+  los cobros anteriores), **Boletas** (en el celu, un mes a la vez) y **Contratos** (con
+  la escalera de cada contrato). `/cobros`, `/alquileres/cobros` y `/contratos` redirigen.
+- **Gastos** (`/gastos`): los gastos personales + una línea "Compartidos con …" con tu
+  parte, que se calcula desde División (no se copia).
 - **División** (`/division`): gastos con la pareja, quién pagó y qué parte es tuya. El
   saldo dice quién le pasa cuánto a quién; "Ya se transfirió" lo marca como saldado.
 
@@ -82,11 +98,31 @@ guarda:** abre el formulario precargado para revisar. El archivo no se guarda en
 lado. Las fotos se achican a 1600 px en el navegador antes de mandarlas. La pantalla corta
 a los 35 s y vuelve a habilitar los botones. Necesita `ANTHROPIC_API_KEY` en Vercel.
 
+En Inicio decide lo que se entendió (gasto, compartido, boleta o cobro de un ingreso).
+Para que se vea a dónde va, el formulario de gasto nuevo muestra arriba **Mío / Con
+{pareja}** ya elegido y se cambia de un toque. Lo que la persona no usa no se ofrece: sin
+División, "compartido" cae en gasto; sin Alquileres, una factura de luz es un gasto y no
+una boleta (el server y la pantalla lo filtran los dos).
+
 ## PDF de División
 
 "Compartir PDF" en División arma el detalle del mes con jsPDF (cargado recién al tocar el
 botón, `lib/pdfDivision.ts`) y abre la hoja de compartir del celular (WhatsApp); en la
 compu lo descarga. Mismo formato que el viejo Divisor de Gastos.
+
+## Formularios
+
+- **`Panel`** (`components/ui.tsx`) es un diálogo flotante centrado, en celu y en compu,
+  montado en un portal. Se centra en el área visible (`visualViewport`): con el teclado
+  abierto no queda tapado. Al abrir, el foco va al diálogo y **no a un campo**: el
+  teclado no salta solo. Esc cierra solo el de arriba (un panel puede abrir otro).
+- **`InputPlata`** formatea mientras escribís: `1.234.567,89`, con el símbolo de la
+  moneda adelante (`simbolo="US$"`). El punto del teclado numérico abre los centavos;
+  pegar `17.872` o `1,234.50` se entiende. El valor sigue siendo texto y se lee con
+  `aNumero` de `lib/format.ts` (la máscara es `enmascararMonto`, probada en
+  `scripts/verificar-formato.js`). `grande` para el importe protagonista.
+- **`ajustes`** acepta solo las claves de `CLAVES_AJUSTES` (`lib/schemas.ts`), con tope
+  de largo: con registro abierto, el endpoint no guarda cualquier cosa.
 
 ## La decisión de diseño que importa
 
@@ -147,7 +183,8 @@ prefijo `alq_`:
 - `alq_fijados` — `id, contrato_id, periodo, monto, nota` (importes fijados a mano)
 - `alq_cobros` — `id, contrato_id, periodo, fecha_cobro, importe, nota`
 - `alq_boletas` — `id, tipo, periodo, fecha, propiedad_id, monto, nota` (solo las que se reparten)
-- `ajustes` — `clave, valor` por usuario
+- `ajustes` — `clave, valor` por usuario (`nombre`, `onboarding`, `ahorro_pct`, `divide`,
+  `pareja_nombre`, `div_mi_pct`, `alquileres` y los `def_*` del contrato nuevo)
 
 Del resto de los módulos: `ingresos`, `ingreso_cobros` (con `tipo_cambio`),
 `categorias` (compartidas entre Gastos y División, color = slot de la paleta),
@@ -190,5 +227,13 @@ está validada para daltonismo (protan / deutan / tritan) sobre fondo blanco. **
 sigue a la propiedad, no a su posición en un ranking**, y no se generan colores nuevos
 más allá del slot 8.
 
-La escalera de alquileres se dibuja con `stepAfter`: el alquiler es una función escalón y
-dibujarlo interpolado sería mentir sobre el dato.
+Hay dos gráficos, nada más (`components/Graficos.tsx`), y los dos se esconden con el ojito:
+
+- **Mes a mes** (Inicio): una barra por mes con lo que te quedó, verde si sobró y roja si
+  faltó; el mes elegido resaltado y el mes en curso a media tinta (está incompleto).
+- **Escalera de cada contrato** (Contratos): se dibuja con `stepAfter`, porque el alquiler
+  es una función escalón y dibujarlo interpolado sería mentir sobre el dato. Eje desde 0,
+  línea "hoy" y el color de su propiedad.
+
+Se sacaron "cobrado vs. esperado" (con inquilinos al día, todo da igual) y "de cada peso
+facturado" (una constante del contrato que además mezclaba el reintegro).

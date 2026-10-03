@@ -1,8 +1,14 @@
 "use client";
 
-import { useEffect, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import {
+  useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore,
+  type ButtonHTMLAttributes, type ChangeEvent, type FocusEvent, type InputHTMLAttributes, type KeyboardEvent as EventoTecla,
+  type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes,
+} from "react";
+import { createPortal } from "react-dom";
 import { Emoji } from "@/components/Emoji";
 import type { EstadoCuota } from "@/lib/calc";
+import { enmascararMonto } from "@/lib/format";
 
 export function Card({
   children,
@@ -20,7 +26,7 @@ export function Card({
   return (
     <section className={`rounded-2xl border border-borde bg-papel ${className}`}>
       {(titulo || accion) && (
-        <header className="flex flex-col items-stretch gap-2 border-b border-linea px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-5">
+        <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-linea px-4 py-3.5 sm:px-5">
           <div className="min-w-0">
             <h2 className="titulo text-base font-semibold">{titulo}</h2>
             {nota && <p className="mt-0.5 text-[11px] text-tenue">{nota}</p>}
@@ -113,20 +119,114 @@ export function Textarea({ className = "", ...props }: TextareaHTMLAttributes<HT
   return <textarea className={`${inputBase} min-h-20 resize-y ${className}`} {...props} />;
 }
 
-/** Input de plata: teclado numérico en el celular y alineado a la derecha. */
+/** Dónde va el cursor: después de la misma cantidad de cifras que tenía antes. */
+function posicionTras(texto: string, cifras: number): number {
+  if (cifras <= 0) return 0;
+  let vistas = 0;
+  for (let i = 0; i < texto.length; i++) {
+    if (/\d/.test(texto[i]) && ++vistas === cifras) return i + 1;
+  }
+  return texto.length;
+}
+
+/**
+ * Input de plata: teclado numérico y el número formateado mientras se
+ * escribe ("1.234.567,89"), con el símbolo de su moneda adelante.
+ *
+ * El valor sigue siendo el texto del campo: quien lo usa lo lee con
+ * `aNumero` como siempre. La máscara reescribe `e.target.value` antes de
+ * pasarle el evento, así ninguna pantalla tiene que cambiar.
+ */
 export function InputPlata({
   className = "",
   simbolo = "$",
+  grande = false,
+  decimales = 2,
+  onChange,
+  onKeyDown,
+  onBlur,
+  value,
   ...props
-}: InputHTMLAttributes<HTMLInputElement> & { simbolo?: string }) {
+}: InputHTMLAttributes<HTMLInputElement> & {
+  simbolo?: string;
+  /** El importe protagonista de un formulario: número grande. */
+  grande?: boolean;
+  decimales?: number;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  const cursor = useRef<number | null>(null);
+
+  // React repinta el valor y el navegador manda el cursor al final: se
+  // vuelve a poner donde estaba, contando cifras y no caracteres.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el && cursor.current !== null && document.activeElement === el) {
+      el.setSelectionRange(cursor.current, cursor.current);
+    }
+    cursor.current = null;
+  });
+
+  function alCambiar(e: ChangeEvent<HTMLInputElement>) {
+    const el = e.target;
+    const crudo = el.value;
+    const fin = el.selectionStart ?? crudo.length;
+    const nuevo = enmascararMonto(crudo, String(value ?? ""), decimales);
+    let pos = posicionTras(nuevo, crudo.slice(0, fin).replace(/\D/g, "").length);
+    // Recién tipeada la coma (o el punto que hace de coma): el cursor la pasa.
+    if (/[.,]/.test(crudo[fin - 1] ?? "") && nuevo[pos] === ",") pos++;
+    el.value = nuevo;
+    cursor.current = pos;
+    if (document.activeElement === el) el.setSelectionRange(pos, pos);
+    onChange?.(e);
+  }
+
+  // Borrar justo después de un punto de miles: el punto vuelve a aparecer y
+  // parece que la tecla no anda. Se corre el cursor y se borra la cifra.
+  function alTeclear(e: EventoTecla<HTMLInputElement>) {
+    const el = e.currentTarget;
+    const i = el.selectionStart ?? 0;
+    if (i === el.selectionEnd) {
+      if (e.key === "Backspace" && el.value[i - 1] === ".") el.setSelectionRange(i - 1, i - 1);
+      if (e.key === "Delete" && el.value[i] === ".") el.setSelectionRange(i + 1, i + 1);
+    }
+    onKeyDown?.(e);
+  }
+
+  // "1.234," a medio escribir queda "1.234" al salir del campo.
+  function alSalir(e: FocusEvent<HTMLInputElement>) {
+    const el = e.currentTarget;
+    if (/,$/.test(el.value)) {
+      el.value = el.value.slice(0, -1);
+      onChange?.({ ...e, target: el, currentTarget: el } as unknown as ChangeEvent<HTMLInputElement>);
+    }
+    onBlur?.(e);
+  }
+
   return (
-    <div className="relative">
-      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-tenue">{simbolo}</span>
+    <div
+      className={`flex w-full items-center gap-1.5 rounded-xl border border-borde bg-papel px-3.5 transition-[border-color,box-shadow] duration-150 focus-within:border-acento focus-within:ring-4 focus-within:ring-acento/15 ${
+        props.disabled ? "opacity-60" : ""
+      }`}
+    >
+      <span
+        className={`pointer-events-none shrink-0 font-semibold text-tenue ${grande ? "numero text-xl" : "text-sm"}`}
+        aria-hidden
+      >
+        {simbolo}
+      </span>
       <input
+        ref={ref}
         type="text"
         inputMode="decimal"
         autoComplete="off"
-        className={`${inputBase} tabular text-right ${simbolo.length > 1 ? "pl-11" : "pl-7"} ${className}`}
+        enterKeyHint="done"
+        value={value}
+        onChange={alCambiar}
+        onKeyDown={alTeclear}
+        onBlur={alSalir}
+        className={`tabular min-w-0 flex-1 bg-transparent py-3 text-right text-tinta placeholder:text-tenue focus:outline-none ${
+          grande ? "numero text-3xl font-bold sm:py-2.5 sm:text-3xl" : "sm:py-2.5 sm:text-sm"
+        } ${className}`}
         {...props}
       />
     </div>
@@ -258,8 +358,44 @@ export function Vacio({
 }
 
 /**
- * Panel de carga. En celular sube desde abajo, donde está el pulgar; en
- * escritorio queda centrado.
+ * Lo que de verdad se ve de la pantalla. Con el teclado abierto el celular
+ * achica esta área (y en iOS la corre): el diálogo se centra adentro de ella
+ * y no queda tapado.
+ */
+function useAreaVisible(activo: boolean) {
+  const [area, setArea] = useState<{ alto: number; arriba: number } | null>(null);
+  useEffect(() => {
+    const vv = typeof window !== "undefined" ? window.visualViewport : null;
+    if (!activo || !vv) return;
+    const medir = () => setArea({ alto: vv.height, arriba: vv.offsetTop });
+    medir();
+    vv.addEventListener("resize", medir);
+    vv.addEventListener("scroll", medir);
+    return () => {
+      vv.removeEventListener("resize", medir);
+      vv.removeEventListener("scroll", medir);
+    };
+  }, [activo]);
+  return area;
+}
+
+/**
+ * Los paneles abiertos, el de más arriba al final. Un panel puede abrir otro
+ * (el emoji adentro del ingreso): Esc cierra solo el de arriba.
+ */
+const pila: object[] = [];
+
+const nada = () => () => {};
+
+const ENFOCABLES =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Panel de carga: una tarjeta flotante en el medio de la pantalla, en el
+ * celular y en la compu.
+ *
+ * Al abrir, el foco va al diálogo y no a un campo: el teclado no salta solo,
+ * se abre cuando tocás dónde escribir.
  */
 export function Panel({
   abierto,
@@ -274,58 +410,94 @@ export function Panel({
   children: ReactNode;
   pie?: ReactNode;
 }) {
+  const caja = useRef<HTMLDivElement>(null);
+  const idTitulo = useId();
+  const area = useAreaVisible(abierto);
+  // En el server no hay document: el portal se arma recién en el navegador.
+  const enNavegador = useSyncExternalStore(nada, () => true, () => false);
+  // Quien lo usa suele pasar una flecha nueva en cada render: se guarda acá
+  // para no rearmar los efectos (y robar el foco) mientras escribís.
+  const alCerrar = useRef(cerrar);
   useEffect(() => {
-    if (!abierto) return;
+    alCerrar.current = cerrar;
+  });
+
+  useEffect(() => {
+    if (!abierto || !enNavegador) return;
+    const yo = {};
+    pila.push(yo);
+    const antes = document.activeElement as HTMLElement | null;
+    caja.current?.focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") cerrar();
+      // Un campo que usa Esc para lo suyo (cancelar una categoría nueva) lo marca.
+      if (e.key === "Escape" && !e.defaultPrevented && pila[pila.length - 1] === yo) alCerrar.current();
     };
     document.addEventListener("keydown", onKey);
     // Sin scroll del fondo mientras el panel está abierto.
     const previo = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
+      pila.splice(pila.indexOf(yo), 1);
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = previo;
+      // Volver a un campo de texto abriría el teclado otra vez.
+      if (antes && !antes.matches("input, textarea, select")) antes.focus?.({ preventScroll: true });
     };
-  }, [abierto, cerrar]);
+  }, [abierto, enNavegador]);
 
-  if (!abierto) return null;
+  /** El Tab da vueltas adentro del diálogo, no se escapa al fondo. */
+  function atraparTab(e: EventoTecla<HTMLDivElement>) {
+    if (e.key !== "Tab" || !caja.current) return;
+    const lista = [...caja.current.querySelectorAll<HTMLElement>(ENFOCABLES)];
+    if (!lista.length) return;
+    const primero = lista[0];
+    const ultimo = lista[lista.length - 1];
+    if (e.shiftKey && (document.activeElement === primero || document.activeElement === caja.current)) {
+      e.preventDefault();
+      ultimo.focus();
+    } else if (!e.shiftKey && document.activeElement === ultimo) {
+      e.preventDefault();
+      primero.focus();
+    }
+  }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={titulo}>
+  if (!abierto || !enNavegador) return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-x-0 top-0 z-50 flex h-dvh items-center justify-center p-3 sm:p-6"
+      style={area ? { height: area.alto, transform: `translateY(${area.arriba}px)` } : undefined}
+    >
       <button
-        className="absolute inset-0 bg-tinta/35 backdrop-blur-[2px]"
-        onClick={cerrar}
+        className="fondo-entra absolute inset-0 bg-tinta/40 backdrop-blur-[2px]"
+        onClick={() => alCerrar.current()}
         aria-label="Cerrar"
         tabIndex={-1}
       />
-      <div className="panel-entra relative flex max-h-[92dvh] w-full flex-col rounded-t-[20px] bg-papel shadow-xl sm:max-w-lg sm:rounded-2xl">
-        {/* La manija: en el celular el panel es una hoja que sube desde abajo. */}
-        <span className="mx-auto mt-2 h-1 w-10 rounded-full bg-borde sm:hidden" aria-hidden />
-        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-linea px-4 py-2.5 sm:py-3">
-          <h3 className="titulo text-base font-semibold">{titulo}</h3>
-          <Boton variante="fantasma" tamano="icono" onClick={cerrar} aria-label="Cerrar">
+      <div
+        ref={caja}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={idTitulo}
+        tabIndex={-1}
+        onKeyDown={atraparTab}
+        className="panel-entra relative flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-3xl bg-papel shadow-[0_24px_48px_-12px_oklch(0.24_0.06_264/0.35)] focus:outline-none sm:max-w-lg"
+      >
+        <header className="flex shrink-0 items-center justify-between gap-3 px-5 pb-1 pt-4">
+          <h3 id={idTitulo} className="titulo text-lg font-bold">
+            {titulo}
+          </h3>
+          <Boton variante="fantasma" tamano="icono" onClick={() => alCerrar.current()} aria-label="Cerrar" className="-mr-2">
             <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
               <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
             </svg>
           </Boton>
         </header>
-        <div
-          className="scroll-x flex-1 overflow-y-auto px-4 py-4"
-          style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
-        >
-          {children}
-        </div>
-        {pie && (
-          <footer
-            className="shrink-0 border-t border-borde bg-papel px-4 py-3"
-            style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
-          >
-            {pie}
-          </footer>
-        )}
+        <div className="flex-1 overflow-y-auto overscroll-contain px-5 pb-5 pt-3">{children}</div>
+        {pie && <footer className="shrink-0 border-t border-linea bg-papel px-5 py-3.5">{pie}</footer>}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -360,6 +532,49 @@ export function Segmentado<T extends string>({
         </button>
       ))}
     </div>
+  );
+}
+
+/** Sí o no, con el texto al lado: toda la fila se toca. */
+export function Interruptor({
+  activo,
+  onCambio,
+  children,
+  detalle,
+  disabled,
+}: {
+  activo: boolean;
+  onCambio: (v: boolean) => void;
+  children: ReactNode;
+  detalle?: ReactNode;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={activo}
+      disabled={disabled}
+      onClick={() => onCambio(!activo)}
+      className="flex min-h-11 w-full items-center justify-between gap-3 text-left disabled:opacity-60"
+    >
+      <span className="min-w-0">
+        <span className="block text-sm font-medium">{children}</span>
+        {detalle && <span className="block text-xs text-tenue">{detalle}</span>}
+      </span>
+      <span
+        className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 ease-[var(--ease-quart)] ${
+          activo ? "bg-acento" : "bg-pista"
+        }`}
+        aria-hidden
+      >
+        <span
+          className={`absolute top-1 h-5 w-5 rounded-full bg-papel shadow-sm transition-[left] duration-200 ease-[var(--ease-quart)] ${
+            activo ? "left-6" : "left-1"
+          }`}
+        />
+      </span>
+    </button>
   );
 }
 

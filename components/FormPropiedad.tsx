@@ -39,10 +39,10 @@ function inicial(p?: Propiedad): Campos {
  * El panel se desmonta al cerrarse y se remonta con `key` distinta cuando cambia
  * lo que se edita.
  *
- * Asi el estado del formulario nace de las props una sola vez, en el
+ * Así el estado del formulario nace de las props una sola vez, en el
  * useState, y no hace falta un efecto que lo resincronice: un efecto que
  * llama a setState dispara un render extra y, peor, si se equivoca de
- * dependencias te borra lo que estas tipeando cuando SWR revalida.
+ * dependencias te borra lo que estás tipeando cuando SWR revalida.
  */
 export function FormPropiedad(props: {
   abierto: boolean;
@@ -69,7 +69,6 @@ function FormPropiedadAbierto({
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
 
-
   const set = <K extends keyof Campos>(k: K, v: Campos[K]) =>
     setCampos((c) => ({ ...c, [k]: v }));
 
@@ -86,7 +85,7 @@ function FormPropiedadAbierto({
       direccion: campos.direccion.trim(),
       tipo: campos.tipo,
       nota: campos.nota.trim(),
-      orden: Math.round(Number(campos.orden.replace(",", ".")) || 0),
+      orden: Math.round(Number(campos.orden) || 0),
     };
     const r = await enviar(
       "/api/propiedades",
@@ -105,15 +104,18 @@ function FormPropiedadAbierto({
     <Panel
       abierto={abierto}
       cerrar={cerrar}
-      titulo={propiedad ? "Editar propiedad" : "Propiedad nueva"}
+      titulo={propiedad ? "Editar propiedad" : "Nueva propiedad"}
       pie={
-        <div className="flex items-center justify-end gap-2">
-          <Boton variante="secundario" className="min-h-11 sm:min-h-9" onClick={cerrar} disabled={guardando}>
-            Cancelar
-          </Boton>
-          <Boton type="submit" form={FORM_ID} className="min-h-11 sm:min-h-9" disabled={guardando}>
-            {guardando ? "Guardando…" : propiedad ? "Guardar cambios" : "Crear propiedad"}
-          </Boton>
+        <div className="flex flex-col gap-2">
+          {error && <Aviso tipo="error">{error}</Aviso>}
+          <div className="flex gap-2">
+            <Boton variante="secundario" onClick={cerrar} disabled={guardando}>
+              Cancelar
+            </Boton>
+            <Boton type="submit" form={FORM_ID} className="flex-1" disabled={guardando}>
+              {guardando ? "Guardando…" : propiedad ? "Guardar cambios" : "Cargar propiedad"}
+            </Boton>
+          </div>
         </div>
       }
     >
@@ -147,27 +149,24 @@ function FormPropiedadAbierto({
           </Select>
         </Campo>
 
-        <Campo label="Nota">
+        <Campo label="Nota (opcional)">
           <Textarea
             value={campos.nota}
             onChange={(e) => set("nota", e.target.value)}
-            placeholder="Medidor de agua compartido con el local."
+            placeholder="Ej: medidor de agua compartido"
           />
         </Campo>
 
-        <Campo label="Orden" hint="Para ordenar la lista: primero los más chicos.">
+        {/* El orden también decide el color de la propiedad en los gráficos. */}
+        <Campo label="Orden" hint="Menor = más arriba.">
           <Input
-            type="number"
+            type="text"
             inputMode="numeric"
-            min={0}
-            max={999}
             value={campos.orden}
-            onChange={(e) => set("orden", e.target.value)}
+            onChange={(e) => set("orden", e.target.value.replace(/\D/g, "").slice(0, 3))}
             className="tabular"
           />
         </Campo>
-
-        <Aviso tipo="error">{error}</Aviso>
       </form>
     </Panel>
   );

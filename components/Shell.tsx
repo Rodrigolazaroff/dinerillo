@@ -1,21 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, type ReactNode } from "react";
 import {
-  IconoAjustes, IconoDivision, IconoGastos, IconoIngresos, IconoInicio,
+  IconoDivision, IconoFlecha, IconoGastos, IconoIngresos, IconoInicio,
 } from "@/components/iconos";
 import { Emoji } from "@/components/Emoji";
+import { MenuPerfil } from "@/components/MenuPerfil";
 import { BotonOjo } from "@/components/Privado";
 import { Toasts } from "@/components/Toast";
+import { Cargando } from "@/components/ui";
+import { enviar, tieneDatos, useData, usaDivision } from "@/lib/useData";
 
 // Esta app se usa desde el celular casi siempre, así que manda el layout mobile:
 // barra de pestañas abajo, donde llega el pulgar. En pantalla grande esa barra
 // desaparece y la navegación vuelve arriba, que es lo natural con mouse.
 //
-// Cuatro pestañas y no más: lo que se mira todos los días. Ajustes vive arriba,
-// y Alquileres adentro de Ingresos, que es lo que es.
+// Cuatro pestañas como mucho: lo que se mira todos los días. División se va si
+// no dividís gastos con nadie. Tu cuenta y los ajustes viven en el avatar, y
+// Alquileres adentro de Ingresos, que es lo que es.
 
 const LINKS = [
   { href: "/", label: "Inicio", Icono: IconoInicio },
@@ -25,8 +29,7 @@ const LINKS = [
 ];
 
 const SUB_ALQUILERES = [
-  { href: "/alquileres", label: "Resumen" },
-  { href: "/alquileres/cobros", label: "Cobros" },
+  { href: "/alquileres", label: "Cobros" },
   { href: "/alquileres/boletas", label: "Boletas" },
   { href: "/alquileres/contratos", label: "Contratos" },
 ];
@@ -40,12 +43,27 @@ function esActivo(href: string, pathname: string) {
 
 export function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { data, recargar } = useData();
   const enAlquileres = pathname.startsWith("/alquileres");
+  const marcado = useRef(false);
 
-  async function salir() {
-    await fetch("/auth/salir", { method: "POST" });
-    window.location.href = "/login";
-  }
+  // Cuenta nueva: primero la Bienvenida. Quien ya venía usando la app no
+  // tiene nada que contestar: se marca en silencio y sigue como siempre.
+  const falta = Boolean(data && !data.config?.onboarding);
+  const nuevo = falta && data !== undefined && !tieneDatos(data);
+  useEffect(() => {
+    if (!data || !falta) return;
+    if (nuevo) {
+      router.replace("/bienvenida");
+      return;
+    }
+    if (marcado.current) return;
+    marcado.current = true;
+    void enviar("/api/config", "POST", { onboarding: "previo" }).then(() => recargar());
+  }, [data, falta, nuevo, router, recargar]);
+
+  const links = LINKS.filter((l) => l.href !== "/division" || !data || usaDivision(data));
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col px-4 sm:px-6">
@@ -58,30 +76,21 @@ export function Shell({ children }: { children: ReactNode }) {
           <span className="titulo text-xl font-extrabold text-acento">dinerillo</span>
         </Link>
 
-        <div className="flex shrink-0 items-center gap-0.5 text-xs text-suave">
+        <div className="flex shrink-0 items-center gap-1">
           <BotonOjo />
-          <Link
-            href="/ajustes"
-            aria-label="Ajustes"
-            aria-current={pathname.startsWith("/ajustes") ? "page" : undefined}
-            className={`flex h-11 w-11 items-center justify-center rounded-lg transition-colors hover:bg-fondo hover:text-tinta sm:h-9 sm:w-9 ${
-              pathname.startsWith("/ajustes") ? "text-acento" : ""
-            }`}
-          >
-            <IconoAjustes className="h-5 w-5" />
-          </Link>
-          <button
-            onClick={salir}
-            className="hidden h-9 items-center px-2 underline-offset-2 hover:underline sm:flex"
-          >
-            salir
-          </button>
+          {data ? (
+            <MenuPerfil data={data} />
+          ) : (
+            <span className="flex h-11 w-11 items-center justify-center sm:h-10 sm:w-10" aria-hidden>
+              <span className="h-8 w-8 rounded-full bg-celeste-claro" />
+            </span>
+          )}
         </div>
       </header>
 
       {/* Navegación de escritorio */}
       <nav className="no-print mb-6 hidden w-fit gap-1 rounded-full bg-celeste-claro p-1 sm:flex" aria-label="Navegación principal">
-        {LINKS.map(({ href, label, Icono }) => (
+        {links.map(({ href, label, Icono }) => (
           <Link
             key={href}
             href={href}
@@ -98,37 +107,49 @@ export function Shell({ children }: { children: ReactNode }) {
         ))}
       </nav>
 
+      {/* Alquileres tiene su título y sus tres secciones, a lo ancho y sin scroll. */}
       {enAlquileres && (
-        <nav
-          className="no-print scroll-x -mx-4 mt-3 flex gap-1 overflow-x-auto px-4 sm:mx-0 sm:mt-0 sm:mb-4 sm:px-0"
-          aria-label="Alquileres"
-        >
-          <Link
-            href="/ingresos"
-            className="flex shrink-0 items-center rounded-lg px-2.5 py-1.5 text-xs text-tenue hover:text-tinta"
+        <div className="no-print mt-3 flex flex-col gap-3 sm:mt-0 sm:mb-5">
+          <div>
+            <Link
+              href="/ingresos"
+              className="-ml-1.5 inline-flex min-h-9 items-center gap-0.5 pr-2 text-xs font-semibold text-tenue transition-colors hover:text-tinta"
+            >
+              <IconoFlecha direccion="izquierda" />
+              Ingresos
+            </Link>
+            <h1 className="titulo flex items-center gap-2 text-2xl font-bold">
+              <Emoji nombre="llave" tamano="md" />
+              Alquileres
+            </h1>
+          </div>
+          <nav
+            aria-label="Secciones de alquileres"
+            className="grid grid-cols-3 gap-1 rounded-full bg-celeste-claro p-1 sm:w-fit sm:min-w-96"
           >
-            ‹ Ingresos
-          </Link>
-          {SUB_ALQUILERES.map(({ href, label }) => {
-            const activo = href === "/alquileres" ? pathname === href : pathname.startsWith(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                aria-current={activo ? "page" : undefined}
-                className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-                  activo ? "bg-acento text-white" : "bg-papel text-suave ring-1 ring-borde hover:text-tinta"
-                }`}
-              >
-                {label}
-              </Link>
-            );
-          })}
-        </nav>
+            {SUB_ALQUILERES.map(({ href, label }) => {
+              const activo = href === "/alquileres" ? pathname === href : pathname.startsWith(href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  aria-current={activo ? "page" : undefined}
+                  className={`flex min-h-11 items-center justify-center rounded-full px-3 text-sm font-semibold transition-[background-color,color,box-shadow] duration-200 ease-[var(--ease-quart)] active:scale-[0.97] sm:min-h-9 ${
+                    activo
+                      ? "bg-papel text-acento shadow-[0_1px_3px_oklch(0.24_0.06_264/0.12)]"
+                      : "text-suave hover:text-tinta"
+                  }`}
+                >
+                  {label}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
       )}
 
       {/* El pb deja aire para que la barra de abajo no tape la última fila. */}
-      <main className="flex-1 pt-4 pb-28 sm:pt-0 sm:pb-16">{children}</main>
+      <main className="flex-1 pt-4 pb-28 sm:pt-0 sm:pb-16">{nuevo ? <Cargando /> : children}</main>
 
       {/* Barra de pestañas: sólo celular */}
       <nav
@@ -136,8 +157,8 @@ export function Shell({ children }: { children: ReactNode }) {
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         aria-label="Navegación principal"
       >
-        <ul className="mx-auto grid max-w-lg grid-cols-4">
-          {LINKS.map(({ href, label, Icono }) => {
+        <ul className="mx-auto grid max-w-lg" style={{ gridTemplateColumns: `repeat(${links.length}, minmax(0, 1fr))` }}>
+          {links.map(({ href, label, Icono }) => {
             const activo = esActivo(href, pathname);
             return (
               <li key={href}>

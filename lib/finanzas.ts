@@ -27,9 +27,15 @@ export const AJUSTES_FABRICA = {
 } as const;
 
 export interface Preferencias {
+  /** Cómo quiere que la app le diga. Vacío: el de la cuenta. */
+  nombre: string;
   ahorroPct: number;
   divMiPct: number;
   pareja: string;
+  /** Divide gastos con alguien. Si nunca lo dijo, sí: así era antes. */
+  divide: boolean;
+  /** Dijo que tiene propiedades en alquiler. */
+  alquileres: boolean;
 }
 
 export function preferencias(config: Config): Preferencias {
@@ -38,9 +44,12 @@ export function preferencias(config: Config): Preferencias {
     return config[k] !== undefined && config[k] !== "" && Number.isFinite(v) ? v : def;
   };
   return {
+    nombre: (config.nombre ?? "").trim(),
     ahorroPct: n("ahorro_pct", AJUSTES_FABRICA.ahorro_pct),
     divMiPct: n("div_mi_pct", AJUSTES_FABRICA.div_mi_pct),
     pareja: (config.pareja_nombre ?? "").trim(),
+    divide: config.divide !== "no",
+    alquileres: config.alquileres === "si",
   };
 }
 
@@ -289,8 +298,8 @@ export function avisos(e: Entradas, periodo: string, hoy: string): Aviso[] {
         out.push({
           id: `mora-${cc.contrato.id}-${q.periodo}`,
           tono: "peligro",
-          texto: `${nombre}: ${q.diasMora} ${q.diasMora === 1 ? "día" : "días"} de atraso con ${q.periodo === periodo ? "este mes" : "un mes anterior"}`,
-          href: "/alquileres/cobros",
+          texto: `${nombre}: ${q.diasMora} ${q.diasMora === 1 ? "día" : "días"} de atraso`,
+          href: "/alquileres",
         });
       } else if (q.periodo === periodo && (q.estado === "pendiente" || q.estado === "parcial")) {
         const faltan = diasEntre(hoy, q.vence);
@@ -299,9 +308,9 @@ export function avisos(e: Entradas, periodo: string, hoy: string): Aviso[] {
           tono: q.estado === "parcial" ? "espera" : "acento",
           texto:
             q.estado === "parcial"
-              ? `${nombre} pagó una parte: falta cobrar el resto`
-              : `Falta cobrar el alquiler de ${nombre}${faltan >= 0 ? `, vence ${faltan === 0 ? "hoy" : `en ${faltan} ${faltan === 1 ? "día" : "días"}`}` : ""}`,
-          href: "/alquileres/cobros",
+              ? `${nombre} pagó una parte`
+              : `Cobrar a ${nombre}${faltan >= 0 ? ` · vence ${faltan === 0 ? "hoy" : `en ${faltan} ${faltan === 1 ? "día" : "días"}`}` : ""}`,
+          href: "/alquileres",
         });
       }
     }
@@ -331,8 +340,8 @@ export function avisos(e: Entradas, periodo: string, hoy: string): Aviso[] {
       tono: p < periodo ? "espera" : "acento",
       texto:
         d.saldo > 0
-          ? `${quien} te debe ${plataTexto(d.saldo)}${p < periodo ? ` de ${mesLargo(p)}` : " este mes"}`
-          : `Le debés ${plataTexto(-d.saldo)} a ${prefs.pareja || "tu pareja"}${p < periodo ? ` de ${mesLargo(p)}` : " este mes"}`,
+          ? `${quien} te debe ${plataTexto(d.saldo)}${p < periodo ? ` de ${mesLargo(p)}` : ""}`
+          : `Le debés ${plataTexto(-d.saldo)} a ${prefs.pareja || "tu pareja"}${p < periodo ? ` de ${mesLargo(p)}` : ""}`,
       href: `/division?mes=${p}`,
     });
   }
@@ -365,7 +374,7 @@ export function insights(e: Entradas, periodo: string, hoy: string): Insight[] {
       id: "ritmo",
       titulo: "A este ritmo",
       valor: plataTexto(porDia * dias),
-      detalle: `de gastos a fin de mes · ${plataTexto(porDia)} por día`,
+      detalle: `a fin de mes · ${plataTexto(porDia)}/día`,
     });
   }
 

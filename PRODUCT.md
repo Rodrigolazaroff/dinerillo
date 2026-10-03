@@ -6,21 +6,23 @@ product
 
 ## Users
 
-Una sola persona: Rodrigo, en Argentina, mirando su plata del mes desde el celular (PWA
-instalada). Usos típicos, cortos y frecuentes:
+Cualquiera que quiera ordenar su plata del mes, en Argentina, desde el celular (PWA
+instalada). Se crea la cuenta sola y la app se arma con cuatro preguntas: si no divide
+gastos no ve División, si no tiene propiedades no ve Alquileres. El usuario de referencia
+es Rodrigo, que usa todo. Usos típicos, cortos y frecuentes:
 
 - Cargar un gasto apenas lo hace (en la calle, en el súper, con una mano), dictándolo o
   subiendo la factura.
 - Mirar cómo viene el mes: cuánto entró, cuánto salió, cuánto le quedó contra el ahorro
   que se propuso.
-- A fin de mes, cerrar la división de gastos con su pareja (Nahi) y mandarle el PDF por
+- A fin de mes, cerrar la división de gastos con su pareja o roomie y mandarle el PDF por
   WhatsApp.
-- Dos veces por mes, registrar los cobros de dos alquileres.
+- Quien alquila: registrar los cobros un par de veces por mes.
 
 ## Product Purpose
 
 Juntar en un solo lugar toda la plata del mes: ingresos propios (sueldo, consultoría,
-redes, alquileres), gastos personales y gastos compartidos con la pareja. Éxito es que la
+redes, alquileres), gastos personales y gastos compartidos. Éxito es que la
 abra seguido porque cargar es rápido y el número del mes se entiende de un vistazo, en
 vez de abrir planillas o hacer cuentas a mano.
 
@@ -28,7 +30,7 @@ vez de abrir planillas o hacer cuentas a mano.
 
 Divertida, clara, liviana. Con la actitud lúdica de apps fintech argentinas como Lemon:
 números grandes, color con energía, emojis, textos que hablan como un amigo y no como un
-banco. Pero la plata se toma en serio: cada número se lee al instante y nunca hay que
+banco: cortos, sin explicar cómo funciona la app por dentro. Pero la plata se toma en serio: cada número se lee al instante y nunca hay que
 adivinar si algo se guardó. El humor está en los detalles (un festejo al saldar el mes,
 un texto con onda en un estado vacío), no en el ruido.
 

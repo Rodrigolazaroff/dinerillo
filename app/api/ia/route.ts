@@ -100,21 +100,29 @@ export async function POST(req: Request) {
 
   // El contexto que necesita para elegir bien: las listas de la persona.
   const supabase = await supabaseServer();
-  const [cats, ings, ajustes] = await Promise.all([
+  const [cats, ings, ajustes, contratos] = await Promise.all([
     supabase.from("categorias").select("nombre").is("deleted_at", null),
     supabase.from("ingresos").select("nombre, moneda").is("deleted_at", null).is("archivado_at", null),
-    supabase.from("ajustes").select("clave, valor").eq("clave", "pareja_nombre"),
+    supabase.from("ajustes").select("clave, valor").in("clave", ["pareja_nombre", "divide", "alquileres"]),
+    supabase.from("alq_contratos").select("id", { count: "exact", head: true }).is("deleted_at", null),
   ]);
   const categorias = (cats.data ?? []).map((c) => c.nombre);
   const ingresos = (ings.data ?? []).map((i) => `${i.nombre} (${i.moneda})`);
-  const pareja = ajustes.data?.[0]?.valor || "la pareja";
+  const ajuste = (k: string) => ajustes.data?.find((a) => a.clave === k)?.valor ?? "";
+  const pareja = ajuste("pareja_nombre") || "la pareja";
+  // Lo que la persona no usa no se ofrece: sin pareja no hay compartidos, y
+  // sin alquileres una factura de luz es un gasto y no una boleta.
+  const divide = ajuste("divide") !== "no";
+  const alquileres = ajuste("alquileres") === "si" || (contratos.count ?? 0) > 0;
 
   const contexto = [
     `Hoy es ${hoyISO()}.`,
-    `La pareja se llama: ${pareja}.`,
+    divide ? `La pareja se llama: ${pareja}.` : "La persona no divide gastos con nadie: nunca uses destino compartido.",
+    alquileres
+      ? `Tipos de boleta: ${TIPOS_GASTO.join(", ")}.`
+      : "La persona no tiene propiedades en alquiler: nunca uses destino boleta; una factura de servicios es un gasto.",
     `Categorías: ${categorias.length ? categorias.join(", ") : "(ninguna todavía)"}.`,
     `Ingresos: ${ingresos.length ? ingresos.join(", ") : "(ninguno todavía)"}.`,
-    `Tipos de boleta: ${TIPOS_GASTO.join(", ")}.`,
     texto ? `Lo que dijo: "${texto}"` : "Leé la factura adjunta.",
   ].join("\n");
 
@@ -156,6 +164,8 @@ export async function POST(req: Request) {
     datos.vencimiento = aFecha(datos.vencimiento);
     if (datos.monto !== null && !(datos.monto > 0)) datos.monto = null;
     if (datos.mi_pct !== null && !(datos.mi_pct >= 0 && datos.mi_pct <= 100)) datos.mi_pct = null;
+    if (!divide && datos.destino === "compartido") datos.destino = "gasto";
+    if (!alquileres && datos.destino === "boleta") datos.destino = "gasto";
 
     // Solo nombres que existen: si el modelo se tomó una licencia, se descarta.
     if (datos.categoria && !categorias.includes(datos.categoria)) datos.categoria = null;

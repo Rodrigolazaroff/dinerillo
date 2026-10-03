@@ -11,7 +11,7 @@ import type { Ingreso } from "@/lib/types";
 import { enviar } from "@/lib/useData";
 
 // Crear o editar una fuente de ingreso. Nada viene cargado de fábrica: el
-// nombre lo ponés vos ("Consultoría ciudadanía búlgara", "Sueldo") y la
+// nombre lo ponés vos ("Consultoría", "Sueldo") y la
 // moneda es la que te pagan.
 
 const ID_FORM = "form-ingreso";
@@ -112,24 +112,17 @@ export function FormIngreso({
           >
             <Emoji nombre={emojiVisible} tamano="lg" />
           </button>
-          <Campo label="Nombre" hint="Como lo reconozcas: “Sueldo”, “Consultoría”, “Redes”." className="flex-1">
+          <Campo label="Nombre" className="flex-1">
             <Input
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
               maxLength={60}
-              autoFocus={!ingreso}
+              placeholder="Sueldo, Consultoría, Redes…"
               required
             />
           </Campo>
         </div>
-        <Campo
-          label="Moneda en la que cobrás"
-          hint={
-            ingreso
-              ? "Si la cambiás, los cobros ya cargados conservan su importe y su tipo de cambio."
-              : "En otra moneda, cada cobro guarda el tipo de cambio del día para pasarlo a pesos."
-          }
-        >
+        <Campo label="Moneda" hint={ingreso ? "Los cobros cargados no cambian." : undefined}>
           <Select value={moneda} onChange={(e) => setMoneda(e.target.value)}>
             {MONEDAS.map((m) => (
               <option key={m} value={m}>

@@ -48,7 +48,7 @@ export function Toasts() {
   if (!t) return null;
   return (
     <div
-      className="no-print pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4"
+      className="no-print pointer-events-none fixed inset-x-0 z-[60] flex justify-center px-4"
       style={{ bottom: "calc(env(safe-area-inset-bottom) + 76px)" }}
       role="status"
       aria-live="polite"

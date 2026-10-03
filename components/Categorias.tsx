@@ -125,7 +125,10 @@ export function ElegirCategoria({
                 e.preventDefault();
                 crear();
               }
-              if (e.key === "Escape") setCreando(false);
+              if (e.key === "Escape") {
+                e.preventDefault();
+                setCreando(false);
+              }
             }}
             maxLength={40}
             placeholder="Ej: Super, Salidas, Auto"

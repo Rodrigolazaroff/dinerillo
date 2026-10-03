@@ -13,7 +13,7 @@ import { avisar } from "@/components/Toast";
 import { Aviso, Boton, BotonFlotante, Card, Cargando, Fila, Input, Vacio } from "@/components/ui";
 import { fechaCorta, fechaDia, hoyISO, periodoLargo } from "@/lib/format";
 import type { DivGasto } from "@/lib/types";
-import { enviar } from "@/lib/useData";
+import { enviar, nombreVisible, usaDivision } from "@/lib/useData";
 import { festejar } from "@/lib/festejo";
 import { compartirPdf, fraseDelAjuste, pdfDivision } from "@/lib/pdfDivision";
 import { useFinanzas } from "@/lib/useFinanzas";
@@ -82,7 +82,7 @@ export default function Division() {
     if (!r.ok) return avisar(r.error);
     await recargar();
     festejar();
-    avisar("¡Mes saldado! 🎉");
+    avisar("¡Mes saldado!");
   }
 
   async function deshacerCierre() {
@@ -92,7 +92,7 @@ export default function Division() {
     setOcupado(false);
     if (!r.ok) return avisar(r.error);
     await recargar();
-    avisar("El mes volvió a quedar abierto");
+    avisar("Mes reabierto");
   }
 
   async function compartir() {
@@ -101,7 +101,7 @@ export default function Division() {
     try {
       const blob = await pdfDivision({
         mes,
-        yo: data.sesion.usuario,
+        yo: nombreVisible(data),
         pareja: Pareja,
         gastos,
         categorias: data.categorias,
@@ -110,7 +110,7 @@ export default function Division() {
       const r = await compartirPdf(
         blob,
         `Division-${mes}.pdf`,
-        `${periodoLargo(mes)}: ${fraseDelAjuste(d, data.sesion.usuario, Pareja)}`
+        `${periodoLargo(mes)}: ${fraseDelAjuste(d, nombreVisible(data), Pareja)}`
       );
       if (r === "descargado") avisar("PDF descargado");
     } catch {
@@ -122,6 +122,31 @@ export default function Division() {
 
   const porDia = new Map<string, DivGasto[]>();
   for (const g of gastos) porDia.set(g.fecha, [...(porDia.get(g.fecha) ?? []), g]);
+
+  // Dijo que no divide gastos (la pestaña no está), pero llegó por un link.
+  if (!usaDivision(data)) {
+    return (
+      <Shell>
+        <Card>
+          <Vacio
+            emoji="corazones"
+            titulo="No dividís gastos con nadie"
+            accion={
+              <Boton
+                onClick={async () => {
+                  const r = await enviar("/api/config", "POST", { divide: "si" });
+                  if (!r.ok) return avisar(r.error);
+                  await recargar();
+                }}
+              >
+                Ahora sí divido
+              </Boton>
+            }
+          />
+        </Card>
+      </Shell>
+    );
+  }
 
   return (
     <Shell>
@@ -155,21 +180,17 @@ export default function Division() {
           El saldo del mes, con el color de quién le debe a quién: lima si te
           tienen que pasar plata, azul si la pasás vos, blanco cuando ya está.
         */}
+        {d.cantidad > 0 && (
         <section
           className={`relative overflow-hidden rounded-2xl px-5 py-5 ${
-            d.cierre || aMano || d.cantidad === 0
+            d.cierre || aMano
               ? "border border-borde bg-papel"
               : d.saldo > 0
                 ? "bg-lima text-tinta"
                 : "bg-acento text-white"
           }`}
         >
-          {d.cantidad === 0 ? (
-            <div className="flex items-center gap-3">
-              <Emoji nombre="corazones" tamano="xl" />
-              <p className="text-sm text-suave">Todavía no hay gastos compartidos en {periodoLargo(mes)}.</p>
-            </div>
-          ) : d.cierre ? (
+          {d.cierre ? (
             <>
               <Emoji nombre="trofeo" tamano="xxl" className="pop pointer-events-none absolute -right-1 -top-1 h-20 w-20 rotate-12" />
               <p className="flex items-center gap-1.5 text-sm font-semibold text-ok">
@@ -182,7 +203,7 @@ export default function Division() {
               <p className="mt-1 text-xs text-suave">{d.cierre.nota}</p>
               {Math.abs(Math.abs(d.saldo) - d.cierre.monto) >= 1 && (
                 <p className="mt-2 text-xs text-espera">
-                  Después se cargaron más gastos: ahora la cuenta da <Monto valor={Math.abs(d.saldo)} />{" "}
+                  Hay gastos nuevos: ahora da <Monto valor={Math.abs(d.saldo)} />{" "}
                   {d.saldo > 0 ? `a tu favor` : `a favor de ${pareja}`}.
                 </p>
               )}
@@ -192,13 +213,13 @@ export default function Division() {
                 disabled={ocupado}
                 className="mt-3 text-xs font-medium text-acento underline-offset-2 hover:underline"
               >
-                Deshacer: no se transfirió
+                Deshacer
               </button>
             </>
           ) : aMano ? (
             <div className="flex items-center gap-3">
               <Emoji nombre="check" tamano="xl" className="pop" />
-              <p className="titulo text-lg font-bold">Están a mano en {periodoLargo(mes)}</p>
+              <p className="titulo text-lg font-bold">Están a mano</p>
             </div>
           ) : (
             <>
@@ -225,6 +246,7 @@ export default function Division() {
             </>
           )}
         </section>
+        )}
 
         <Asistente modo="compartido" className="[&>*]:flex-1 sm:[&>*]:flex-none" />
 
@@ -242,7 +264,7 @@ export default function Division() {
               <Fila label="Pagaste vos" valor={<Monto valor={d.pagueYo} />} />
               <Fila label={`Pagó ${pareja}`} valor={<Monto valor={d.pagoPareja} />} />
               <div className="my-1 border-t border-linea" />
-              <Fila label="Tu parte (va a tus Gastos)" valor={<Monto valor={d.miParte} />} fuerte />
+              <Fila label="Tu parte" valor={<Monto valor={d.miParte} />} fuerte />
               <Fila label={`Parte de ${pareja}`} valor={<Monto valor={d.suParte} />} />
             </div>
           </Card>
@@ -270,8 +292,7 @@ export default function Division() {
                 </Boton>
               }
             >
-              El súper, el alquiler, los servicios: cargalos con quién pagó y qué parte es tuya. La
-              cuenta de quién le pasa cuánto a quién se hace sola.
+              El súper, el alquiler, la luz. Las cuentas salen solas.
             </Vacio>
           ) : (
             <div>
@@ -295,7 +316,7 @@ export default function Division() {
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm">{x.descripcion}</p>
                               <p className="truncate text-[11px] text-tenue">
-                                Pagó {x.pago === "yo" ? "vos" : pareja} ·{" "}
+                                {x.pago === "yo" ? "Pagaste" : `Pagó ${pareja}`} ·{" "}
                                 {x.mi_pct === 50 ? "mitad y mitad" : x.mi_pct === 100 ? "todo tuyo" : x.mi_pct === 0 ? `todo de ${pareja}` : `tu parte ${x.mi_pct}%`}
                               </p>
                             </div>

@@ -1,22 +1,23 @@
 "use client";
 
 /**
- * Los cuatro gráficos del tablero.
+ * Los gráficos de la app: la escalera de cada contrato y el mes a mes de Inicio.
  *
- * Reglas que no se negocian acá: un solo eje Y por gráfico, nada de torta (las
- * partes de un total van apiladas), grilla recesiva, tooltip propio y números
- * siempre en color de texto — el color de serie vive en la marca y en el
- * cuadradito de la leyenda, nunca en el importe.
+ * Reglas que no se negocian acá: un solo eje Y por gráfico y desde cero, grilla
+ * recesiva, tooltip propio y números siempre en color de texto — el color de
+ * serie vive en la marca, nunca en el importe. Con el ojito cerrado no se
+ * dibujan: el alto de una barra ya cuenta cuánto es.
  */
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Bar,
   BarChart,
   CartesianGrid,
-  LabelList,
   Line,
   LineChart,
+  ReferenceArea,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -24,10 +25,11 @@ import {
   type BarShapeProps,
   type TooltipContentProps,
 } from "recharts";
-import type { FilaPeriodo, Resumen } from "@/lib/calc";
+import { usePrivado } from "@/components/Privado";
+import { Card } from "@/components/ui";
+import type { Cuota } from "@/lib/calc";
 import type { MesSerie } from "@/lib/finanzas";
-import { ejeCorto, pct, periodoCorto, periodoLargo, plata, plataCorta } from "@/lib/format";
-import { Card, Segmentado } from "@/components/ui";
+import { ejeCorto, periodoActual, periodoCorto, periodoLargo, plata, plataCorta } from "@/lib/format";
 
 /* ------------------------------------------------------------------ tema --- */
 
@@ -47,7 +49,7 @@ const SERIES = [
   "var(--color-serie-8)",
 ] as const;
 
-const colorSerie = (i: number) => SERIES[Math.min(Math.max(i, 0), SERIES.length - 1)];
+export const colorSerie = (i: number) => SERIES[Math.min(Math.max(i, 0), SERIES.length - 1)];
 
 /** Eje fino y sin líneas: el dato tiene que pesar más que su marco. */
 const EJE = {
@@ -79,540 +81,254 @@ function useAngosto(): boolean {
   return angosto;
 }
 
+/** Con "reducir movimiento", las barras aparecen ya crecidas. */
+function useSinMovimiento(): boolean {
+  const [quieto, setQuieto] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const leer = () => setQuieto(mq.matches);
+    leer();
+    mq.addEventListener("change", leer);
+    return () => mq.removeEventListener("change", leer);
+  }, []);
+  return quieto;
+}
+
 /** A 360px no entran doce etiquetas de mes: se muestra una cada 2 o 3. */
 function intervaloTicks(n: number, maximo: number): number {
   return n <= maximo ? 0 : Math.ceil(n / maximo) - 1;
 }
 
 /**
- * Rectángulo con las puntas redondeadas de un solo lado.
+ * Rectángulo con las puntas redondeadas sólo en la punta del dato.
  *
- * La barra tiene que quedar apoyada en su línea de base: redondear el arranque
- * corre el cero de lugar y el ojo lee un valor que no está.
+ * La barra tiene que quedar apoyada en el cero: redondear el arranque corre la
+ * base de lugar y el ojo lee un valor que no está.
  */
-function pathBarra(
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  lado: "arriba" | "derecha",
-  r = 4
-): string {
+function pathBarra(x: number, y: number, w: number, h: number, punta: "arriba" | "abajo", r = 4): string {
   if (!(w > 0) || !(h > 0)) return "";
   const q = Math.max(0, Math.min(r, w / 2, h / 2));
-  if (lado === "arriba") {
+  if (punta === "arriba") {
     return `M${x},${y + h} L${x},${y + q} Q${x},${y} ${x + q},${y} L${x + w - q},${y} Q${x + w},${y} ${x + w},${y + q} L${x + w},${y + h} Z`;
   }
-  return `M${x},${y} L${x + w - q},${y} Q${x + w},${y} ${x + w},${y + q} L${x + w},${y + h - q} Q${x + w},${y + h} ${x + w - q},${y + h} L${x},${y + h} Z`;
-}
-
-/** Ancho de texto a ojo, para reservar el margen sin medir el DOM. */
-const anchoTexto = (caracteres: number) => Math.ceil(caracteres * 6.2) + 12;
-
-/**
- * La ventana de meses que se muestra: termina en el período actual (o en el
- * último con datos, si los contratos todavía no arrancaron) y va para atrás.
- */
-function ultimos(filas: FilaPeriodo[], actual: string, meses: number): FilaPeriodo[] {
-  if (filas.length === 0) return [];
-  let fin = -1;
-  filas.forEach((f, i) => {
-    if (f.periodo <= actual) fin = i;
-  });
-  if (fin < 0) fin = Math.min(filas.length - 1, Math.max(0, meses - 1));
-  return filas.slice(Math.max(0, fin + 1 - meses), fin + 1);
+  return `M${x},${y} L${x + w},${y} L${x + w},${y + h - q} Q${x + w},${y + h} ${x + w - q},${y + h} L${x + q},${y + h} Q${x},${y + h} ${x},${y + h - q} Z`;
 }
 
 /* ------------------------------------------------------- piezas comunes --- */
 
-const ES_PERIODO = /^\d{4}-\d{2}$/;
-
-type PropsGlobo = Partial<TooltipContentProps> & {
-  /** Pisa el título; si no va, el label del eje se lee como período. */
-  titulo?: ReactNode;
-  /** Orden de lectura de las filas. Lo que no esté acá cae al final. */
-  orden?: readonly string[];
-  /** Texto chico al lado del importe (el porcentaje, por ejemplo). */
-  detalle?: (valor: number, clave: string) => string | undefined;
-  /** Renglón de cierre, calculado sobre la fila original del dato. */
-  pie?: (fila: Record<string, unknown>) => ReactNode;
-};
-
-/**
- * El tooltip de los cuatro. El default de Recharts trae su propio estilo y sus
- * propios números sin formato: acá los importes salen con `plata()` y tabulares,
- * que es como se leen en toda la app.
- */
-function Globo({ active, payload, label, titulo, orden, detalle, pie }: PropsGlobo) {
-  if (!active || !payload || payload.length === 0) return null;
-
-  const filas = payload
-    .filter((p) => p.value != null && !p.hide)
-    .map((p) => {
-      // Con dataKey de función (nombres de propiedad con puntos) la identidad
-      // de la serie la lleva el `name`, no el dataKey.
-      const clave = typeof p.dataKey === "string" ? p.dataKey : String(p.name ?? "");
-      return {
-        clave,
-        nombre: String(p.name ?? clave),
-        color: p.color,
-        valor: Number(p.value),
-      };
-    });
-  if (filas.length === 0) return null;
-
-  if (orden) {
-    const pos = (clave: string) => {
-      const i = orden.indexOf(clave);
-      return i < 0 ? orden.length : i;
-    };
-    filas.sort((a, b) => pos(a.clave) - pos(b.clave));
-  }
-
-  const fila = payload[0]?.payload as Record<string, unknown> | undefined;
-  const cierre = pie && fila ? pie(fila) : null;
-  const encabezado =
-    titulo ?? (typeof label === "string" && ES_PERIODO.test(label) ? periodoLargo(label) : label);
-
+/** El marco del tooltip: los importes con `plata()` y tabulares, como en toda la app. */
+function Globo({ titulo, children }: { titulo: ReactNode; children: ReactNode }) {
   return (
     <div className="pointer-events-none min-w-40 rounded-lg border border-borde bg-papel px-3 py-2 text-xs shadow-[0_6px_20px_rgba(19,19,22,0.10)]">
-      {encabezado != null && (
-        <p className="mb-1.5 font-semibold capitalize text-tinta">{encabezado}</p>
-      )}
-      <ul className="flex flex-col gap-1">
-        {filas.map((f) => {
-          const extra = detalle?.(f.valor, f.clave);
-          return (
-            <li key={f.clave} className="flex items-center gap-2">
-              <span
-                className="h-2 w-2 shrink-0 rounded-[2px]"
-                style={{ background: f.color ?? "var(--color-tenue)" }}
-                aria-hidden
-              />
-              <span className="text-suave">{f.nombre}</span>
-              <span className="tabular ml-auto font-medium text-tinta">{plata(f.valor)}</span>
-              {extra && <span className="tabular w-11 text-right text-tenue">{extra}</span>}
-            </li>
-          );
-        })}
-      </ul>
-      {cierre}
+      <p className="mb-1.5 font-semibold text-tinta first-letter:uppercase">{titulo}</p>
+      {children}
     </div>
   );
 }
 
-type ItemLeyenda = { clave: string; nombre: string; color: string };
-
-/** Leyenda propia: el color queda en el cuadradito y el texto en tinta. */
-function Leyenda({ items }: { items: ItemLeyenda[] }) {
+function Renglon({ nombre, valor, color, fuerte = false }: { nombre: string; valor: number; color?: string; fuerte?: boolean }) {
   return (
-    <ul className="flex flex-wrap gap-x-4 gap-y-1.5 px-4 pb-4 sm:px-5">
-      {items.map((i) => (
-        <li key={i.clave} className="flex min-w-0 items-center gap-1.5 text-xs">
-          <span
-            className="h-2 w-2 shrink-0 rounded-[2px]"
-            style={{ background: i.color }}
-            aria-hidden
-          />
-          <span className="truncate text-suave">{i.nombre}</span>
-        </li>
-      ))}
-    </ul>
+    <p className="flex items-center gap-2">
+      {color && <span className="h-2 w-2 shrink-0 rounded-[2px]" style={{ background: color }} aria-hidden />}
+      <span className={fuerte ? "font-medium text-tinta" : "text-suave"}>{nombre}</span>
+      <span className={`tabular ml-auto text-tinta ${fuerte ? "font-semibold" : "font-medium"}`}>{plata(valor)}</span>
+    </p>
   );
 }
 
-/** Un gráfico en blanco no explica nada: el vacío dice qué falta cargar. */
+/** Un gráfico en blanco no explica nada: el vacío lo dice en una línea. */
 function SinDatos({ alto = 150, children }: { alto?: number; children: ReactNode }) {
   return (
-    <div
-      className="flex items-center justify-center px-6 py-8 text-center"
-      style={{ minHeight: alto }}
-    >
+    <div className="flex items-center justify-center px-6 py-8 text-center" style={{ minHeight: alto }}>
       <p className="max-w-[38ch] text-xs leading-relaxed text-tenue">{children}</p>
     </div>
   );
 }
 
-/* ------------------------------------------------ 1. cobrado vs esperado --- */
+/* --------------------------------------------- escalera de un contrato --- */
 
-/** El slot que da Recharts es el 80% de la banda; la marca no lo llena todo. */
-const anchoMarca = (slot: number) => Math.max(4, Math.min(32, slot * 0.78));
+type PuntoEscalera = { periodo: string; bruto: number; fijado: boolean };
+
+function GloboEscalera({ active, payload, color }: Partial<TooltipContentProps> & { color: string }) {
+  const p = active ? (payload?.[0]?.payload as PuntoEscalera | undefined) : undefined;
+  if (!p) return null;
+  return (
+    <Globo titulo={periodoLargo(p.periodo)}>
+      <Renglon nombre={p.fijado ? "Alquiler (a mano)" : "Alquiler"} valor={p.bruto} color={color} />
+    </Globo>
+  );
+}
 
 /**
- * Esto es énfasis, no dos series rivales: el esperado es la pista de contexto y
- * el cobrado va adelante, más angosto y centrado sobre la misma banda.
- *
- * Con `barGap="-80%"` las dos barras caen en el mismo slot, así que las dos
- * formas salen del mismo `x` y quedan concéntricas sin cuentas de píxeles
- * (y sin romperse cuando cambia el ancho de la pantalla o la cantidad de meses).
+ * Cómo sube el alquiler de un contrato, mes a mes. Escalones (`stepAfter`):
+ * entre aumento y aumento el alquiler no se mueve, e interpolar mentiría. El
+ * eje arranca en cero: cortado, un 15% parece el doble.
  */
-function formaPista(p: BarShapeProps) {
-  const w = anchoMarca(p.width);
-  const d = pathBarra(p.x + (p.width - w) / 2, p.y, w, p.height, "arriba");
-  return d ? <path d={d} fill="var(--color-pista)" /> : null;
-}
-
-function formaCobrado(p: BarShapeProps) {
-  const w = anchoMarca(p.width) * 0.52;
-  const d = pathBarra(p.x + (p.width - w) / 2, p.y, w, p.height, "arriba");
-  return d ? <path d={d} fill="var(--color-serie-1)" /> : null;
-}
-
-type Ventana = "6" | "12" | "24";
-const OPCIONES_VENTANA: { valor: Ventana; label: string }[] = [
-  { valor: "6", label: "6 m" },
-  { valor: "12", label: "12 m" },
-  { valor: "24", label: "24 m" },
-];
-const ventanaInicial = (meses: number): Ventana => {
-  const v = String(meses);
-  return v === "6" || v === "12" || v === "24" ? v : "12";
-};
-
-export function CobradoVsEsperado({
-  resumen,
-  meses = 12,
+export function EscaleraContrato({
+  cuotas,
+  hoy,
+  slot,
 }: {
-  resumen: Resumen;
-  /** Cuántos meses arranca mostrando; después manda el filtro de la tarjeta. */
-  meses?: number;
+  cuotas: Cuota[];
+  /** Período de hoy (YYYY-MM): la línea "hoy", si cae adentro del contrato. */
+  hoy: string;
+  /** Slot de la paleta de la propiedad (0 a 7): el mismo en toda la app. */
+  slot: number;
 }) {
+  const [oculto] = usePrivado();
   const angosto = useAngosto();
-  const [ventana, setVentana] = useState<Ventana>(() => ventanaInicial(meses));
-  const datos = useMemo(
-    () => ultimos(resumen.porPeriodo, resumen.periodoActual, Number(ventana)),
-    [resumen.porPeriodo, resumen.periodoActual, ventana]
-  );
-  const alto = angosto ? 220 : 280;
+  if (oculto || cuotas.length < 2) return null;
+
+  const datos: PuntoEscalera[] = cuotas.map((q) => ({ periodo: q.periodo, bruto: q.bruto, fijado: q.fijado }));
+  const color = colorSerie(slot);
+  const conHoy = datos.some((d) => d.periodo === hoy);
 
   return (
-    <Card
-      titulo="Cobrado contra esperado"
-      nota="La barra gris es lo que había que cobrar; la azul, lo que entró."
-      accion={
-        <Segmentado
-          valor={ventana}
-          opciones={OPCIONES_VENTANA}
-          onCambio={setVentana}
-          className="self-start sm:self-auto"
+    <ResponsiveContainer width="100%" height={angosto ? 120 : 140}>
+      <LineChart data={datos} margin={{ top: 16, right: 12, bottom: 0, left: 0 }}>
+        <CartesianGrid {...GRILLA} />
+        <XAxis
+          dataKey="periodo"
+          tickFormatter={periodoCorto}
+          interval={intervaloTicks(datos.length, angosto ? 4 : 8)}
+          tickMargin={6}
+          {...EJE}
         />
-      }
-    >
-      {datos.length === 0 ? (
-        <SinDatos alto={alto / 2}>
-          Todavía no hay cuotas. Cargá un contrato y sus cobros, y acá vas a ver mes a mes cuánto
-          había que cobrar y cuánto entró.
-        </SinDatos>
+        <YAxis tickFormatter={ejeCorto} width={40} tickMargin={4} tickCount={3} domain={[0, "auto"]} {...EJE} />
+        <Tooltip
+          cursor={{ stroke: "var(--color-pista)", strokeWidth: 1 }}
+          content={<GloboEscalera color={color} />}
+        />
+        {conHoy && (
+          <ReferenceLine
+            x={hoy}
+            stroke="var(--color-tenue)"
+            strokeDasharray="3 3"
+            label={{ value: "hoy", position: "top", fill: "var(--color-suave)", fontSize: 11 }}
+          />
+        )}
+        <Line
+          dataKey="bruto"
+          name="Alquiler"
+          type="stepAfter"
+          stroke={color}
+          strokeWidth={2}
+          dot={false}
+          activeDot={{ r: 4 }}
+          // Una escalera no se "dibuja": es el dato, aparece entero.
+          isAnimationActive={false}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+/* ------------------------------------------------------------ mes a mes --- */
+
+function GloboMes({ active, payload, enCurso }: Partial<TooltipContentProps> & { enCurso: string }) {
+  const m = active ? (payload?.[0]?.payload as MesSerie | undefined) : undefined;
+  if (!m) return null;
+  return (
+    <Globo titulo={`${periodoLargo(m.periodo)}${m.periodo === enCurso ? " · en curso" : ""}`}>
+      <Renglon nombre="Entró" valor={m.ingresos} />
+      <Renglon nombre="Salió" valor={m.gastos} />
+      <div className="mt-1.5 border-t border-borde pt-1.5">
+        <Renglon nombre="Te quedó" valor={m.quedo} fuerte />
+      </div>
+    </Globo>
+  );
+}
+
+/**
+ * La barra de cada mes. Verde si sobró, roja si faltó (con el texto del
+ * tooltip y el signo del eje al lado: el color no va solo). El mes en curso
+ * va a media tinta porque todavía no terminó, y el mes elegido lleva su valor.
+ */
+function formaQuedo(actual: string, enCurso: string) {
+  return function BarraQuedo(p: BarShapeProps) {
+    const m = p.payload as MesSerie;
+    // Recharts dibuja los negativos con alto negativo, desde la punta hacia el cero.
+    const negativo = p.height < 0;
+    const y = negativo ? p.y + p.height : p.y;
+    const h = Math.abs(p.height);
+    const d = pathBarra(p.x, y, p.width, h, negativo ? "abajo" : "arriba", 3);
+    return (
+      <g>
+        {d && (
+          <path
+            d={d}
+            fill={negativo ? "var(--color-serie-8)" : "var(--color-serie-3)"}
+            fillOpacity={m.periodo === enCurso ? 0.5 : 1}
+          />
+        )}
+        {m.periodo === actual && (
+          <text
+            x={p.x + p.width / 2}
+            y={negativo ? y + h + 13 : y - 6}
+            textAnchor="middle"
+            fontSize={11}
+            fontWeight={600}
+            fill="var(--color-tinta)"
+            className="tabular"
+          >
+            {plataCorta(m.quedo)}
+          </text>
+        )}
+      </g>
+    );
+  };
+}
+
+/** El año de un vistazo: cuánto te quedó cada mes. Entró y salió, en el tooltip. */
+export function IngresosVsGastos({ serie, actual }: { serie: MesSerie[]; actual: string }) {
+  const [oculto] = usePrivado();
+  const angosto = useAngosto();
+  const sinMovimiento = useSinMovimiento();
+  if (oculto) return null;
+
+  const datos = angosto ? serie.slice(-6) : serie;
+  const hayAlgo = datos.some((m) => m.ingresos > 0 || m.gastos > 0);
+  const hayNegativos = datos.some((m) => m.quedo < 0);
+  const enCurso = periodoActual();
+  const alto = angosto ? 200 : 240;
+
+  return (
+    <Card titulo="Mes a mes">
+      {!hayAlgo ? (
+        <SinDatos alto={alto / 2}>Todavía no hay movimientos.</SinDatos>
       ) : (
-        <div className="px-1 pb-4 pt-4 sm:px-2">
+        <div className="px-1 pb-3 pt-4 sm:px-2">
           <ResponsiveContainer width="100%" height={alto}>
-            <BarChart
-              data={datos}
-              margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
-              barCategoryGap="10%"
-              barGap="-80%"
-            >
+            <BarChart data={datos} margin={{ top: 18, right: 8, bottom: hayNegativos ? 4 : 0, left: 0 }} barCategoryGap="28%">
               <CartesianGrid {...GRILLA} />
+              {/* El mes elegido, con una banda detrás: es el que estás mirando. */}
+              <ReferenceArea x1={actual} x2={actual} fill="var(--color-celeste-claro)" fillOpacity={1} />
               <XAxis
                 dataKey="periodo"
                 tickFormatter={periodoCorto}
-                interval={intervaloTicks(datos.length, angosto ? 5 : 10)}
+                interval={intervaloTicks(datos.length, angosto ? 6 : 12)}
                 tickMargin={8}
                 {...EJE}
               />
-              <YAxis tickFormatter={ejeCorto} width={46} tickMargin={4} {...EJE} />
-              <Tooltip
-                cursor={{ fill: "var(--color-linea)" }}
-                content={
-                  <Globo
-                    orden={["cobrado", "esperado"]}
-                    pie={(fila) => {
-                      const d = Number(fila.diferencia) || 0;
-                      if (Math.abs(d) < 1) return null;
-                      return (
-                        <p className="mt-1.5 border-t border-borde pt-1.5 text-[11px] text-suave">
-                          {d < 0 ? `Falta ${plata(-d)}` : `Entró ${plata(d)} de más`}
-                        </p>
-                      );
-                    }}
-                  />
-                }
+              <YAxis
+                tickFormatter={ejeCorto}
+                width={46}
+                tickMargin={4}
+                domain={[(min: number) => Math.min(0, min), (max: number) => Math.max(0, max)]}
+                {...EJE}
               />
-              {/* La pista va primero: el cobrado se dibuja encima. */}
+              {hayNegativos && <ReferenceLine y={0} stroke="var(--color-borde)" />}
+              <Tooltip cursor={{ fill: "var(--color-linea)" }} content={<GloboMes enCurso={enCurso} />} />
               <Bar
-                dataKey="esperado"
-                name="Esperado"
-                fill="var(--color-pista)"
-                shape={formaPista}
-              />
-              <Bar
-                dataKey="cobrado"
-                name="Cobrado"
-                fill="var(--color-serie-1)"
-                shape={formaCobrado}
+                dataKey="quedo"
+                name="Te quedó"
+                fill="var(--color-serie-3)"
+                shape={formaQuedo(actual, enCurso)}
+                isAnimationActive={!sinMovimiento}
               />
             </BarChart>
           </ResponsiveContainer>
         </div>
-      )}
-    </Card>
-  );
-}
-
-/* ------------------------------------------------- 2. escalera de precios --- */
-
-export function EscaleraDeAlquileres({ resumen }: { resumen: Resumen }) {
-  const angosto = useAngosto();
-  const { escalera, seriesEscalera } = resumen;
-  const alto = angosto ? 230 : 290;
-  const hayDatos = escalera.length > 0 && seriesEscalera.length > 0;
-  const unaSola = seriesEscalera.length === 1;
-
-  return (
-    <Card
-      titulo={unaSola ? `Escalera de alquileres · ${seriesEscalera[0]}` : "Escalera de alquileres"}
-      nota="Cada escalón es un aumento. Entre aumento y aumento el alquiler no se mueve."
-    >
-      {!hayDatos ? (
-        <SinDatos alto={alto / 2}>
-          No hay contratos cargados. Con el alquiler inicial y el aumento por escalones, acá
-          aparece cómo sube el alquiler de cada propiedad.
-        </SinDatos>
-      ) : (
-        <>
-          <div className="px-1 pb-2 pt-4 sm:px-2">
-            <ResponsiveContainer width="100%" height={alto}>
-              <LineChart data={escalera} margin={{ top: 4, right: 12, bottom: 0, left: 0 }}>
-                <CartesianGrid {...GRILLA} />
-                <XAxis
-                  dataKey="periodo"
-                  tickFormatter={periodoCorto}
-                  interval={intervaloTicks(escalera.length, angosto ? 5 : 10)}
-                  tickMargin={8}
-                  {...EJE}
-                />
-                {/* Desde cero: si el eje arranca cortado, un 15% parece el doble. */}
-                <YAxis
-                  tickFormatter={ejeCorto}
-                  width={46}
-                  tickMargin={4}
-                  domain={[0, "auto"]}
-                  {...EJE}
-                />
-                <Tooltip
-                  cursor={{ stroke: "var(--color-pista)", strokeWidth: 1 }}
-                  content={<Globo orden={seriesEscalera} />}
-                />
-                {seriesEscalera.map((serie, i) => (
-                  <Line
-                    key={serie}
-                    name={serie}
-                    // dataKey por función: un nombre de propiedad con punto
-                    // ("Casa de Av. San Martín") rompe el acceso por path.
-                    dataKey={(fila: Record<string, number | string>) => fila[serie]}
-                    type="stepAfter"
-                    stroke={colorSerie(i)}
-                    strokeWidth={2}
-                    dot={false}
-                    activeDot={{ r: 4 }}
-                    // Un contrato que terminó no sigue: el hueco es el dato.
-                    connectNulls={false}
-                  />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-          {/* Con una sola serie el título ya la nombra: la caja sería ruido. */}
-          {!unaSola && (
-            <Leyenda
-              items={seriesEscalera.map((serie, i) => ({
-                clave: serie,
-                nombre: serie,
-                color: colorSerie(i),
-              }))}
-            />
-          )}
-        </>
-      )}
-    </Card>
-  );
-}
-
-/* --------------------------------------------- 3. composición del ingreso --- */
-
-/** El aire entre segmentos: se recorta el fill y por abajo se ve el papel. */
-const AIRE = 2;
-
-function formaSegmento(color: string, conAire: boolean, redondeado: boolean) {
-  return function Segmento(p: BarShapeProps) {
-    const w = conAire ? p.width - AIRE : p.width;
-    if (!(w > 0) || !(p.height > 0)) return null;
-    if (redondeado) {
-      return <path d={pathBarra(p.x, p.y, w, p.height, "derecha")} fill={color} />;
-    }
-    return <rect x={p.x} y={p.y} width={w} height={p.height} fill={color} />;
-  };
-}
-
-export function ComposicionDelIngreso({ resumen }: { resumen: Resumen }) {
-  const anio = resumen.periodoActual.slice(0, 4);
-  // `resumen.anio` no trae el reintegro: sale de sumar los períodos del año.
-  const reintegro = useMemo(
-    () =>
-      resumen.porPeriodo
-        .filter((f) => f.periodo.startsWith(anio))
-        .reduce((a, f) => a + f.reintegro, 0),
-    [resumen.porPeriodo, anio]
-  );
-
-  const { bruto, comision, neto } = resumen.anio;
-  // El total es lo facturado: el bruto es alquiler (neto + comisión) y el
-  // reintegro de servicios va arriba de eso, no adentro.
-  const total = neto + comision + reintegro;
-
-  const partes = [
-    { clave: "neto", nombre: "Neto tuyo", color: colorSerie(0), valor: Math.max(0, neto) },
-    { clave: "comision", nombre: "Comisión inmobiliaria", color: colorSerie(1), valor: Math.max(0, comision) },
-    { clave: "reintegro", nombre: "Reintegro de servicios", color: colorSerie(2), valor: Math.max(0, reintegro) },
-  ];
-  let ultimoConDato = -1;
-  partes.forEach((p, i) => {
-    if (p.valor > 0) ultimoConDato = i;
-  });
-
-  return (
-    <Card
-      titulo={`De cada peso facturado en ${anio}`}
-      nota="Alquiler más los servicios que te reintegran. El neto es lo que te queda."
-    >
-      {bruto <= 0 || total <= 0 ? (
-        <SinDatos alto={120}>
-          Este año todavía no hay alquileres facturados. Cuando el contrato tenga cuotas en {anio},
-          acá se parte el total entre lo tuyo, la comisión y los servicios.
-        </SinDatos>
-      ) : (
-        <>
-          <div className="px-4 pb-1 pt-4 sm:px-5">
-            <ResponsiveContainer width="100%" height={56}>
-              <BarChart
-                data={[{ nombre: anio, neto, comision, reintegro }]}
-                layout="vertical"
-                margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
-              >
-                {/* Dominio fijado al total: la barra ocupa el ancho entero. */}
-                <XAxis type="number" domain={[0, total]} hide />
-                <YAxis type="category" dataKey="nombre" hide />
-                <Tooltip
-                  cursor={false}
-                  content={
-                    <Globo
-                      titulo={`Facturado en ${anio}: ${plata(total)}`}
-                      orden={partes.map((p) => p.clave)}
-                      detalle={(valor) => pct(valor / total)}
-                    />
-                  }
-                />
-                {partes.map((p, i) => (
-                  <Bar
-                    key={p.clave}
-                    dataKey={p.clave}
-                    name={p.nombre}
-                    stackId="facturado"
-                    barSize={28}
-                    fill={p.color}
-                    shape={formaSegmento(p.color, i < ultimoConDato, i === ultimoConDato)}
-                  />
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <ul className="flex flex-col gap-1.5 px-4 pb-4 sm:px-5">
-            {partes.map((p) => (
-              <li key={p.clave} className="flex items-center gap-2 text-xs">
-                <span
-                  className="h-2 w-2 shrink-0 rounded-[2px]"
-                  style={{ background: p.color }}
-                  aria-hidden
-                />
-                <span className="truncate text-suave">{p.nombre}</span>
-                <span className="tabular ml-auto font-medium text-tinta">{plata(p.valor)}</span>
-                <span className="tabular w-12 text-right text-tenue">{pct(p.valor / total)}</span>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-    </Card>
-  );
-}
-
-/* --------------------------------------------- 5. ingresos contra gastos --- */
-
-
-/** Barra con la punta de arriba redondeada, apoyada en el cero. */
-function formaArriba(p: BarShapeProps) {
-  return <path d={pathBarra(p.x, p.y, p.width, p.height, "arriba", 3)} fill={p.fill} />;
-}
-
-/**
- * El año de un vistazo: lo que entró y lo que salió, mes a mes. Dos barras
- * por mes, una al lado de la otra, y en el tooltip lo que quedó.
- */
-export function IngresosVsGastos({ serie, actual }: { serie: MesSerie[]; actual: string }) {
-  const angosto = useAngosto();
-  const datos = angosto ? serie.slice(-6) : serie;
-  const hayAlgo = datos.some((m) => m.ingresos > 0 || m.gastos > 0);
-  const alto = angosto ? 200 : 260;
-
-  return (
-    <Card titulo="Entró y salió" nota={angosto ? "Los últimos 6 meses." : "Los últimos 12 meses."}>
-      {!hayAlgo ? (
-        <SinDatos alto={alto / 2}>
-          Cuando cargues ingresos y gastos, acá vas a ver mes a mes cuánto entró y cuánto salió.
-        </SinDatos>
-      ) : (
-        <>
-          <div className="px-1 pb-2 pt-4 sm:px-2">
-            <ResponsiveContainer width="100%" height={alto}>
-              <BarChart data={datos} margin={{ top: 4, right: 8, bottom: 0, left: 0 }} barGap={2} barCategoryGap="22%">
-                <CartesianGrid {...GRILLA} />
-                <XAxis
-                  dataKey="periodo"
-                  tickFormatter={periodoCorto}
-                  interval={intervaloTicks(datos.length, angosto ? 6 : 12)}
-                  tickMargin={8}
-                  {...EJE}
-                />
-                <YAxis tickFormatter={ejeCorto} width={46} tickMargin={4} {...EJE} />
-                <Tooltip
-                  cursor={{ fill: "var(--color-linea)" }}
-                  content={
-                    <Globo
-                      orden={["ingresos", "gastos"]}
-                      pie={(fila) => {
-                        const q = Number(fila.quedo) || 0;
-                        return (
-                          <p className="mt-1.5 border-t border-borde pt-1.5 text-[11px] text-suave">
-                            {q >= 0 ? `Te quedó ${plata(q)}` : `Gastaste ${plata(-q)} más de lo que entró`}
-                            {fila.periodo === actual ? " (mes en curso)" : ""}
-                          </p>
-                        );
-                      }}
-                    />
-                  }
-                />
-                <Bar dataKey="ingresos" name="Entró" fill="var(--color-serie-3)" shape={formaArriba} />
-                <Bar dataKey="gastos" name="Salió" fill="var(--color-serie-2)" shape={formaArriba} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <Leyenda
-            items={[
-              { clave: "ingresos", nombre: "Entró", color: "var(--color-serie-3)" },
-              { clave: "gastos", nombre: "Salió", color: "var(--color-serie-2)" },
-            ]}
-          />
-        </>
       )}
     </Card>
   );

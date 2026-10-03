@@ -58,9 +58,7 @@ export default function DetalleIngreso() {
   if (!fuente) {
     return (
       <Shell>
-        <Vacio titulo="No encontré ese ingreso" accion={<Link href="/ingresos" className="text-sm text-acento">Volver a Ingresos</Link>}>
-          Puede que lo hayas borrado.
-        </Vacio>
+        <Vacio titulo="No encontré ese ingreso" accion={<Link href="/ingresos" className="text-sm text-acento">Volver a Ingresos</Link>} />
       </Shell>
     );
   }
@@ -92,7 +90,7 @@ export default function DetalleIngreso() {
     setOcupado(false);
     if (!r.ok) return avisar(r.error);
     await recargar();
-    avisar(valor ? "Archivado: ya no aparece en la lista" : "Reactivado");
+    avisar(valor ? "Archivado" : "Reactivado");
   }
 
   async function borrar() {
@@ -152,7 +150,7 @@ export default function DetalleIngreso() {
           <Kpi
             etiqueta="Promedio"
             valor={<Monto valor={promedio} corto />}
-            detalle={conCobro.length ? `por mes, últimos ${conCobro.length === 1 ? "1 mes" : `${conCobro.length} meses`} con cobros` : "todavía sin cobros"}
+            detalle={conCobro.length ? `por mes · últimos ${conCobro.length === 1 ? "1 mes" : `${conCobro.length} meses`}` : "—"}
             className="col-span-2 sm:col-span-1"
           />
         </div>
@@ -167,9 +165,7 @@ export default function DetalleIngreso() {
                   Cargar el primero
                 </Boton>
               }
-            >
-              Cada vez que entra plata de {fuente.nombre}, cargala acá con la fecha.
-            </Vacio>
+            />
           ) : (
             <div className="divide-y divide-linea">
               {[...porPeriodo.entries()].map(([p, xs]) => (
@@ -194,7 +190,7 @@ export default function DetalleIngreso() {
                             <p className="text-sm">Entró el {fechaDia(c.fecha)}</p>
                             {(c.nota || extranjera) && (
                               <p className="truncate text-[11px] text-tenue">
-                                {extranjera && `TC $ ${c.tipo_cambio.toLocaleString("es-AR")}`}
+                                {extranjera && `1 ${fuente.moneda} = $ ${c.tipo_cambio.toLocaleString("es-AR")}`}
                                 {extranjera && c.nota && " · "}
                                 {c.nota}
                               </p>
@@ -233,10 +229,7 @@ export default function DetalleIngreso() {
                 Borrar
               </Boton>
             ) : (
-              <p className="basis-full text-[11px] leading-relaxed text-tenue">
-                Si ya no cobrás de acá, archivalo: deja de aparecer en la lista y su historial sigue
-                contando en los meses que pasaron.
-              </p>
+              <p className="basis-full text-xs text-tenue">¿Ya no cobrás de acá? Archivalo; el historial queda.</p>
             )}
           </div>
         </Card>
