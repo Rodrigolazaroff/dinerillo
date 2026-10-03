@@ -9,15 +9,15 @@
  * navegador. Nada de datos se guarda acá.
  */
 
-const CACHE = "dinerillo-v1";
+const CACHE = "dinerillo-v2";
 
 // El shell mínimo: la pantalla de offline y los iconos que la acompañan.
 const SHELL = [
   "/offline",
-  "/icons/icono-192.png",
-  "/icons/icono-512.png",
-  "/icons/maskable-512.png",
-  "/icons/apple-180.png",
+  "/icons/icono-192.png?v=2",
+  "/icons/icono-512.png?v=2",
+  "/icons/maskable-512.png?v=2",
+  "/icons/apple-180.png?v=2",
 ];
 
 self.addEventListener("install", (evento) => {

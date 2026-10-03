@@ -15,14 +15,14 @@ export default function manifest(): MetadataRoute.Manifest {
     dir: "ltr",
     categories: ["finance", "productivity"],
     icons: [
-      { src: "/icons/icono-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: "/icons/icono-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: "/icons/icono-192.png?v=2", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/icons/icono-512.png?v=2", sizes: "512x512", type: "image/png", purpose: "any" },
       /*
        * Android recorta el icono con la forma que tenga el launcher (círculo,
        * squircle, gota). Sin una entrada maskable con aire de sobra usa la de
        * "any" y le come los bordes a la marca.
        */
-      { src: "/icons/maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: "/icons/maskable-512.png?v=2", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
     shortcuts: [
       {
@@ -30,14 +30,14 @@ export default function manifest(): MetadataRoute.Manifest {
         short_name: "Gasto",
         description: "Anotar un gasto tuyo.",
         url: "/gastos?nuevo=1",
-        icons: [{ src: "/icons/icono-192.png", sizes: "192x192", type: "image/png" }],
+        icons: [{ src: "/icons/icono-192.png?v=2", sizes: "192x192", type: "image/png" }],
       },
       {
         name: "Gasto compartido",
         short_name: "Compartido",
         description: "Anotar un gasto para dividir.",
         url: "/division?nuevo=1",
-        icons: [{ src: "/icons/icono-192.png", sizes: "192x192", type: "image/png" }],
+        icons: [{ src: "/icons/icono-192.png?v=2", sizes: "192x192", type: "image/png" }],
       },
     ],
   };

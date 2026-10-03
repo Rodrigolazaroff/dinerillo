@@ -1,23 +1,26 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { ImageResponse } from "next/og";
 
 /*
- * Los iconos salen de acá en vez de ser PNG en /public para que el día que
- * cambie el azul de la marca no haya que reexportar nada a mano.
+ * El ícono de la app instalada: la moneda 3D (Fluent Emoji, MIT) sobre el azul
+ * de la marca. Sale de acá y no son PNG sueltos en /public para que, si cambia
+ * el azul, no haya que reexportar nada a mano.
  * Se prerenderizan en build: no hay nada dinámico que mirar en el request.
  */
 export const dynamic = "force-static";
 
-const AZUL = "#1f4b6e";
-const BLANCO = "#ffffff";
+/** El azul eléctrico de la marca (--color-acento, oklch(0.5 0.22 264)). */
+const AZUL = "#1d52de";
 
-/** `marca`: fracción del lienzo que ocupa la llave. El resto es aire. */
+/** `marca`: fracción del lienzo que ocupa la moneda. El resto es aire. */
 const ICONOS: Record<string, { lado: number; marca: number }> = {
-  "icono-192.png": { lado: 192, marca: 0.7 },
-  "icono-512.png": { lado: 512, marca: 0.7 },
+  "icono-192.png": { lado: 192, marca: 0.72 },
+  "icono-512.png": { lado: 512, marca: 0.72 },
   // El maskable deja 20% de cada lado como descarte: Android recorta un
   // círculo y lo que quede afuera se pierde.
-  "maskable-512.png": { lado: 512, marca: 0.6 },
-  "apple-180.png": { lado: 180, marca: 0.66 },
+  "maskable-512.png": { lado: 512, marca: 0.56 },
+  "apple-180.png": { lado: 180, marca: 0.68 },
 };
 
 export function generateStaticParams() {
@@ -29,22 +32,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ icono: 
   const spec = ICONOS[icono];
   if (!spec) return new Response("No existe", { status: 404 });
 
-  const { lado } = spec;
-  const m = lado * spec.marca; // lado del cuadrado donde vive la marca
+  // El original es de 256 px: en el ícono más grande se agranda apenas 1,4x.
+  const png = await readFile(join(process.cwd(), "assets", "moneda-3d.png"));
+  const moneda = `data:image/png;base64,${png.toString("base64")}`;
 
-  /*
-   * Llave de casa dibujada con círculos y rectángulos, sin una sola letra:
-   * ImageResponse necesita una fuente cargada para renderizar glifos y una
-   * fuente que falta en build deja el icono en blanco. Formas no fallan.
-   */
-  const aro = m * 0.48; // diámetro exterior del ojo de la llave
-  const pared = m * 0.135; // grosor del aro
-  const hueco = aro - pared * 2;
-  const palo = m * 0.15; // ancho del cuerpo
-  const dienteAncho = m * 0.19;
-  const dienteAlto = m * 0.12;
-  const paloX = m * 0.5 - palo / 2;
-  const dienteX = m * 0.5 + palo / 2 - m * 0.015; // pisa un poco el cuerpo, sin costura
+  const { lado } = spec;
+  const m = Math.round(lado * spec.marca);
 
   return new ImageResponse(
     (
@@ -58,63 +51,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ icono: 
           backgroundColor: AZUL,
         }}
       >
-        <div style={{ position: "relative", display: "flex", width: m, height: m }}>
-          <div
-            style={{
-              position: "absolute",
-              left: (m - aro) / 2,
-              top: 0,
-              width: aro,
-              height: aro,
-              borderRadius: aro / 2,
-              backgroundColor: BLANCO,
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              left: (m - hueco) / 2,
-              top: pared,
-              width: hueco,
-              height: hueco,
-              borderRadius: hueco / 2,
-              backgroundColor: AZUL,
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              left: paloX,
-              top: aro * 0.9,
-              width: palo,
-              height: m - aro * 0.9,
-              borderRadius: palo / 2,
-              backgroundColor: BLANCO,
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              left: dienteX,
-              top: m * 0.6,
-              width: dienteAncho,
-              height: dienteAlto,
-              borderRadius: dienteAlto / 2,
-              backgroundColor: BLANCO,
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              left: dienteX,
-              top: m * 0.79,
-              width: dienteAncho,
-              height: dienteAlto,
-              borderRadius: dienteAlto / 2,
-              backgroundColor: BLANCO,
-            }}
-          />
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element -- ImageResponse solo entiende <img> */}
+        <img src={moneda} width={m} height={m} alt="" />
       </div>
     ),
     {
