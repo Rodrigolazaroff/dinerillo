@@ -277,7 +277,7 @@ export default function GastosPage() {
     <Shell>
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-lg font-semibold tracking-tight">Boletas</h1>
+          <h1 className="titulo text-2xl font-bold">Boletas</h1>
           {/* Subir la boleta del agua o del inmobiliario y que se cargue sola. */}
           <Asistente modo="boleta" />
         </div>

@@ -1,4 +1,5 @@
 import type { ContratoCalculado } from "./calc";
+import { emojiDe } from "./emoji";
 import { diasEntre, redondear, sumarMeses, ultimoDiaDelMes } from "./format";
 import type { Categoria, Config, DivCierre, DivGasto, Ingreso, IngresoCobro, MiGasto } from "./types";
 
@@ -88,6 +89,7 @@ export function alquileresDelMes(calculados: ContratoCalculado[], periodo: strin
 export interface LineaIngreso {
   id: string;                // id de la fuente, o ID_ALQUILERES
   nombre: string;
+  emoji: string;
   moneda: string;
   original: number;          // en la moneda de la fuente
   pesos: number;
@@ -97,6 +99,7 @@ export interface LineaIngreso {
 export interface LineaCategoria {
   id: string;                // SIN_CATEGORIA = sin categoría
   nombre: string;
+  emoji: string;
   color: number;
   propios: number;
   compartidos: number;
@@ -160,7 +163,8 @@ export function resumenDelMes(e: Entradas, periodo: string): ResumenMes {
     const f = fuentes.get(c.ingreso_id);
     if (!f || f.deleted_at) continue;
     const l = porFuente.get(f.id) ?? {
-      id: f.id, nombre: f.nombre, moneda: f.moneda, original: 0, pesos: 0, cobros: 0,
+      id: f.id, nombre: f.nombre, emoji: emojiDe(f.emoji, f.nombre, "bolsa-plata"),
+      moneda: f.moneda, original: 0, pesos: 0, cobros: 0,
     };
     l.original += c.monto;
     l.pesos += enPesos(c);
@@ -174,7 +178,7 @@ export function resumenDelMes(e: Entradas, periodo: string): ResumenMes {
   }));
   if (tieneAlquileres) {
     lineas.push({
-      id: ID_ALQUILERES, nombre: "Alquileres", moneda: "ARS",
+      id: ID_ALQUILERES, nombre: "Alquileres", emoji: "llave", moneda: "ARS",
       original: alq.ingreso, pesos: alq.ingreso, cobros: 0,
     });
   }
@@ -192,6 +196,7 @@ export function resumenDelMes(e: Entradas, periodo: string): ResumenMes {
     const nueva: LineaCategoria = {
       id: clave,
       nombre: clave ? c!.nombre : "Sin categoría",
+      emoji: clave ? emojiDe(c!.emoji, c!.nombre) : "moneda",
       color: clave ? c!.color : 0,
       propios: 0, compartidos: 0, total: 0,
     };
@@ -349,9 +354,11 @@ export function insights(e: Entradas, periodo: string, hoy: string): Insight[] {
   const r = resumenDelMes(e, periodo);
   const ant = resumenDelMes(e, sumarMeses(periodo, -1));
 
-  // Ritmo: solo tiene sentido en el mes que está corriendo.
-  if (hoy.startsWith(periodo) && r.gastos.total > 0) {
-    const dia = Number(hoy.slice(8, 10));
+  // Ritmo: solo en el mes que está corriendo y desde el día 10. Antes, el
+  // alquiler y la tarjeta (que se pagan a principio de mes) inflan la cuenta
+  // y la proyección sale disparatada.
+  const dia = Number(hoy.slice(8, 10));
+  if (hoy.startsWith(periodo) && dia >= 10 && r.gastos.total > 0) {
     const dias = ultimoDiaDelMes(periodo);
     const porDia = r.gastos.total / dia;
     out.push({

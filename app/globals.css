@@ -1,31 +1,48 @@
 @import "tailwindcss";
 
-@theme {
-  /* Base: gris cálido, no blanco puro. Se lee mejor con sol en la calle. */
-  --color-fondo: #f7f7f5;
-  --color-papel: #ffffff;
-  --color-tinta: #131316;
-  --color-suave: #56565e;
-  --color-tenue: #8a8a93;
-  --color-borde: #e6e5e0;
-  --color-linea: #efeee9;
+/*
+ * Dinerillo: azul, celeste, verde claro y blanco. Divertida, clara, liviana.
+ *
+ * - Azul eléctrico: la marca. Las superficies que responden "¿cómo viene el
+ *   mes?" van llenas de azul, con el número en blanco.
+ * - Verde claro (lima): la acción. El botón de cargar, el "+" y lo positivo.
+ *   Siempre con tinta oscura encima, nunca texto blanco.
+ * - Celeste: superficies suaves, chips, la pestaña activa.
+ * - Blanco: el fondo de trabajo. Las neutras tiran apenas al azul de la marca.
+ *
+ * En OKLCH: los saltos de luminosidad se ven parejos entre tonos distintos.
+ * Contrastes verificados sobre blanco y sobre el azul (ver PRODUCT.md, AA).
+ */
+@theme inline {
+  --color-fondo: oklch(0.975 0.008 245);
+  --color-papel: oklch(1 0 0);
+  --color-tinta: oklch(0.24 0.06 264);
+  --color-suave: oklch(0.43 0.045 264);
+  --color-tenue: oklch(0.52 0.035 264);
+  --color-borde: oklch(0.915 0.016 245);
+  --color-linea: oklch(0.95 0.01 245);
 
-  /* Marca. Azul petróleo: no choca con los tres estados de cobro. */
-  --color-acento: #1f4b6e;
-  --color-acento-claro: #eaf0f5;
+  /* Marca */
+  --color-acento: oklch(0.5 0.22 264);
+  --color-acento-claro: oklch(0.95 0.03 255);
+  --color-acento-hondo: oklch(0.36 0.17 266);
+  --color-celeste: oklch(0.85 0.09 228);
+  --color-celeste-claro: oklch(0.95 0.035 228);
+  --color-lima: oklch(0.9 0.17 128);
+  --color-lima-claro: oklch(0.96 0.07 128);
 
-  /* Estados de una cuota. Nunca van solos: siempre con texto al lado. */
-  --color-ok: #0f7a38;
-  --color-ok-claro: #e9f6ee;
-  --color-espera: #92500b;
-  --color-espera-claro: #fdf4e6;
-  --color-peligro: #b3261e;
-  --color-peligro-claro: #fdeceb;
+  /* Estados. Nunca van solos: siempre con texto o ícono al lado. */
+  --color-ok: oklch(0.5 0.13 152);
+  --color-ok-claro: oklch(0.955 0.05 150);
+  --color-espera: oklch(0.53 0.13 60);
+  --color-espera-claro: oklch(0.965 0.04 80);
+  --color-peligro: oklch(0.53 0.2 25);
+  --color-peligro-claro: oklch(0.96 0.03 20);
 
   /*
-   * Colores de los gráficos. Orden fijo, nunca rotado: el color sigue a la
-   * propiedad, no a su posición en el ranking. Validados para daltonismo
-   * (protan/deutan/tritan) sobre fondo blanco.
+   * Colores de los gráficos y las categorías. Orden fijo, nunca rotado: el
+   * color sigue a la cosa, no a su posición en un ranking. Validados para
+   * daltonismo (protan/deutan/tritan) sobre fondo blanco.
    */
   --color-serie-1: #2a78d6;
   --color-serie-2: #eb6834;
@@ -35,13 +52,16 @@
   --color-serie-6: #008300;
   --color-serie-7: #4a3aa7;
   --color-serie-8: #e34948;
-  /* Gris de contexto: lo que se espera cobrar, contra lo que ya entró. */
-  --color-pista: #dedcd5;
+  /* Gris de contexto: lo que se espera, contra lo que ya pasó. */
+  --color-pista: oklch(0.91 0.02 245);
 
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Figtree para todo; Bricolage Grotesque solo para números grandes y títulos. */
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-bricolage), var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
 
-  /* Curvas propias: las de CSS no rematan. Nunca ease-in en UI. */
+  /* Curvas: salida exponencial, sin rebote. Nunca ease-in en UI. */
   --ease-salida: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-quart: cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 html {
@@ -63,6 +83,25 @@ body {
 /* Los importes en columna necesitan ancho fijo por dígito para alinearse. */
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/*
+ * El número grande de cada pantalla: Bricolage con un poco menos de ancho en
+ * tamaño de display, que es donde tiene más gracia.
+ */
+.numero {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-variation-settings: "opsz" 96;
+  letter-spacing: -0.015em;
+  line-height: 1;
+}
+
+.titulo {
+  font-family: var(--font-display);
+  font-variation-settings: "opsz" 32;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
 }
 
 /*
@@ -135,3 +174,40 @@ body {
     display: none !important;
   }
 }
+
+/* Un emoji o un check que aparece con un pequeño salto: confirma que algo pasó. */
+@keyframes pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.flota,
+.pop {
+  animation: pop 420ms var(--ease-quart) both;
+}
+
+/* Las filas de una lista entran escalonadas, apenas: se nota que llegaron datos. */
+@keyframes entrar-fila {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.lista-entra > * {
+  animation: entrar-fila 260ms var(--ease-quart) both;
+}
+.lista-entra > :nth-child(2) { animation-delay: 30ms; }
+.lista-entra > :nth-child(3) { animation-delay: 60ms; }
+.lista-entra > :nth-child(4) { animation-delay: 90ms; }
+.lista-entra > :nth-child(5) { animation-delay: 120ms; }
+.lista-entra > :nth-child(n + 6) { animation-delay: 150ms; }

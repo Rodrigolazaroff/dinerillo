@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { Emoji } from "@/components/Emoji";
 import { IconoMas } from "@/components/iconos";
+import { emojiDe, sugerirEmoji } from "@/lib/emoji";
 import type { Categoria } from "@/lib/types";
 import { enviar } from "@/lib/useData";
 
@@ -21,6 +23,10 @@ export function PuntoCategoria({ color }: { color: number }) {
     />
   );
 }
+
+/** El emoji de una categoría: el elegido, o uno sugerido por su nombre. */
+export const emojiCategoria = (c?: Pick<Categoria, "emoji" | "nombre" | "deleted_at">) =>
+  c && !c.deleted_at ? emojiDe(c.emoji, c.nombre) : "moneda";
 
 /** El próximo color libre: así dos categorías nuevas no salen iguales. */
 export function proximoColor(categorias: Categoria[]): number {
@@ -60,7 +66,12 @@ export function ElegirCategoria({
     const res = await fetch("/api/categorias", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombre: n, color: proximoColor(categorias), orden: vivas.length }),
+      body: JSON.stringify({
+        nombre: n,
+        color: proximoColor(categorias),
+        emoji: sugerirEmoji(n),
+        orden: vivas.length,
+      }),
     });
     const data = await res.json().catch(() => ({}));
     setGuardando(false);
@@ -76,8 +87,8 @@ export function ElegirCategoria({
   }
 
   const chip = (activo: boolean) =>
-    `inline-flex min-h-[36px] items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-      activo ? "border-acento bg-acento text-white" : "border-borde bg-papel text-tinta hover:bg-fondo"
+    `inline-flex min-h-[40px] items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold transition-[background-color,border-color,color,transform] duration-150 ease-[var(--ease-quart)] active:scale-95 ${
+      activo ? "border-acento bg-acento text-white" : "border-borde bg-papel text-tinta hover:border-celeste hover:bg-celeste-claro"
     }`;
 
   return (
@@ -92,7 +103,7 @@ export function ElegirCategoria({
             onClick={() => onCambio(valor === c.id ? "" : c.id)}
             className={chip(valor === c.id)}
           >
-            {valor !== c.id && <PuntoCategoria color={c.color} />}
+            <Emoji nombre={emojiCategoria(c)} tamano="sm" />
             {c.nombre}
           </button>
         ))}

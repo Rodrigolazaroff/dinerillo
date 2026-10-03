@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Asistente } from "@/components/Asistente";
-import { PuntoCategoria } from "@/components/Categorias";
+import { emojiCategoria } from "@/components/Categorias";
+import { BurbujaEmoji, Emoji } from "@/components/Emoji";
 import { FormMovimiento } from "@/components/FormMovimiento";
 import { IconoCheck, IconoMas } from "@/components/iconos";
 import { Monto } from "@/components/Privado";
@@ -13,6 +14,7 @@ import { Aviso, Boton, BotonFlotante, Card, Cargando, Fila, Input, Vacio } from 
 import { fechaCorta, fechaDia, hoyISO, periodoLargo } from "@/lib/format";
 import type { DivGasto } from "@/lib/types";
 import { enviar } from "@/lib/useData";
+import { festejar } from "@/lib/festejo";
 import { compartirPdf, fraseDelAjuste, pdfDivision } from "@/lib/pdfDivision";
 import { useFinanzas } from "@/lib/useFinanzas";
 import { usarParametro } from "@/lib/useMes";
@@ -79,7 +81,8 @@ export default function Division() {
     setOcupado(false);
     if (!r.ok) return avisar(r.error);
     await recargar();
-    avisar("Mes saldado");
+    festejar();
+    avisar("¡Mes saldado! 🎉");
   }
 
   async function deshacerCierre() {
@@ -124,7 +127,7 @@ export default function Division() {
     <Shell>
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-lg font-semibold tracking-tight">División</h1>
+          <h1 className="titulo text-2xl font-bold">División</h1>
           <SelectorMes />
         </div>
 
@@ -148,21 +151,33 @@ export default function Division() {
           </Card>
         )}
 
+        {/*
+          El saldo del mes, con el color de quién le debe a quién: lima si te
+          tienen que pasar plata, azul si la pasás vos, blanco cuando ya está.
+        */}
         <section
-          className={`rounded-2xl px-5 py-5 ${
-            d.cierre || aMano ? "border border-borde bg-papel" : "bg-acento text-white"
+          className={`relative overflow-hidden rounded-2xl px-5 py-5 ${
+            d.cierre || aMano || d.cantidad === 0
+              ? "border border-borde bg-papel"
+              : d.saldo > 0
+                ? "bg-lima text-tinta"
+                : "bg-acento text-white"
           }`}
         >
           {d.cantidad === 0 ? (
-            <p className="text-sm text-suave">Todavía no hay gastos compartidos en {periodoLargo(mes)}.</p>
+            <div className="flex items-center gap-3">
+              <Emoji nombre="corazones" tamano="xl" />
+              <p className="text-sm text-suave">Todavía no hay gastos compartidos en {periodoLargo(mes)}.</p>
+            </div>
           ) : d.cierre ? (
             <>
+              <Emoji nombre="trofeo" tamano="xxl" className="pop pointer-events-none absolute -right-1 -top-1 h-20 w-20 rotate-12" />
               <p className="flex items-center gap-1.5 text-sm font-semibold text-ok">
                 <IconoCheck className="h-4 w-4" />
                 Saldado el {fechaCorta(d.cierre.fecha)}
               </p>
-              <p className="tabular mt-1 text-3xl font-semibold tracking-tight">
-                <Monto valor={d.cierre.monto} />
+              <p className="numero mt-2 text-4xl font-extrabold">
+                <Monto valor={d.cierre.monto} animado />
               </p>
               <p className="mt-1 text-xs text-suave">{d.cierre.nota}</p>
               {Math.abs(Math.abs(d.saldo) - d.cierre.monto) >= 1 && (
@@ -181,18 +196,26 @@ export default function Division() {
               </button>
             </>
           ) : aMano ? (
-            <p className="text-base font-semibold">Están a mano en {periodoLargo(mes)}</p>
+            <div className="flex items-center gap-3">
+              <Emoji nombre="check" tamano="xl" className="pop" />
+              <p className="titulo text-lg font-bold">Están a mano en {periodoLargo(mes)}</p>
+            </div>
           ) : (
             <>
-              <p className="text-xs font-medium text-white/75">
+              <Emoji
+                nombre={d.saldo > 0 ? "plata-vuela" : "corazones"}
+                tamano="xxl"
+                className="pop pointer-events-none absolute -right-1 -top-1 h-20 w-20 rotate-12"
+              />
+              <p className={`text-sm font-medium ${d.saldo > 0 ? "text-tinta/75" : "text-white/80"}`}>
                 {d.saldo > 0 ? `${Pareja} te tiene que pasar` : `Le tenés que pasar a ${pareja}`}
               </p>
-              <p className="tabular mt-1 text-4xl font-semibold tracking-tight">
-                <Monto valor={Math.abs(d.saldo)} />
+              <p className="numero mt-2 text-[2.75rem] font-extrabold">
+                <Monto valor={Math.abs(d.saldo)} animado />
               </p>
               <Boton
                 variante="secundario"
-                className="mt-4 border-white/30 bg-white/10 text-white hover:bg-white/20"
+                className={`mt-4 ${d.saldo > 0 ? "border-tinta/15 bg-papel" : "border-white/30 bg-white/10 text-white hover:bg-white/20"}`}
                 onClick={marcarTransferido}
                 disabled={ocupado}
               >
@@ -238,6 +261,7 @@ export default function Division() {
         >
           {gastos.length === 0 ? (
             <Vacio
+              emoji="corazones"
               titulo="Nada compartido este mes"
               accion={
                 <Boton onClick={() => setNuevo(true)}>
@@ -267,7 +291,7 @@ export default function Division() {
                             onClick={() => setEditando(x)}
                             className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-fondo sm:px-5"
                           >
-                            <PuntoCategoria color={c && !c.deleted_at ? c.color : 0} />
+                            <BurbujaEmoji nombre={emojiCategoria(c)} tono={x.pago === "yo" ? "celeste" : "lima"} />
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm">{x.descripcion}</p>
                               <p className="truncate text-[11px] text-tenue">

@@ -165,6 +165,24 @@ El mapeo de recurso de la API a tabla está en `TABLAS`, en `lib/repo.ts`. Ojo c
 nombres: `/api/boletas` son las boletas de alquileres y `/api/mis-gastos` los gastos
 personales; `/api/alquileres` son los importes fijados a mano.
 
+## Diseño
+
+Contexto de producto en `PRODUCT.md` (divertida, clara, liviana; estilo Lemon con paleta
+propia). Lo visual:
+
+- **Paleta** (tokens en `app/globals.css`, OKLCH): azul eléctrico `acento` (marca,
+  tarjetas principales), `lima` (acción principal: botones y el "+", siempre con tinta
+  encima), `celeste` / `celeste-claro` (superficies suaves, pestaña activa), blanco de
+  fondo. Contrastes verificados AA.
+- **Tipografía:** Figtree para todo; Bricolage Grotesque (`.numero`, `.titulo`) solo para
+  números grandes y títulos. Las dos tienen cifras tabulares. Se sirven con `next/font`.
+- **Emojis:** Fluent Emoji 3D (Microsoft, MIT) en `public/emoji/*.webp` a 128 px, nunca
+  el emoji del sistema. Catálogo y sugerencia por nombre en `lib/emoji.ts`; categorías e
+  ingresos guardan el nombre en la columna `emoji`.
+- **Movimiento:** contador en los números grandes (`<Monto animado>`), entrada de filas
+  (`.lista-entra`), `pop` en emojis, confeti solo al saldar el mes (`lib/festejo.ts`).
+  Todo respeta `prefers-reduced-motion`.
+
 ## Colores de los gráficos
 
 La paleta de series está en `app/globals.css` como `--color-serie-1..8`, en orden fijo, y

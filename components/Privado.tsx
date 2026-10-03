@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { IconoOjo } from "@/components/iconos";
 import { plata, plataCorta } from "@/lib/format";
 
@@ -37,10 +37,57 @@ export function usePrivado(): [boolean, () => void] {
 }
 
 /** Un monto que respeta el ojito. */
-export function Monto({ valor, corto = false }: { valor: number; corto?: boolean }) {
+export function Monto({
+  valor,
+  corto = false,
+  animado = false,
+}: {
+  valor: number;
+  corto?: boolean;
+  /** Cuenta desde el valor anterior: para el número grande de cada pantalla. */
+  animado?: boolean;
+}) {
   const [oculto] = usePrivado();
+  const mostrado = useContador(valor, animado && !oculto);
   if (oculto) return <span aria-label="Monto oculto">$ ••••</span>;
-  return <>{corto ? plataCorta(valor) : plata(valor)}</>;
+  return <>{corto ? plataCorta(mostrado) : plata(mostrado)}</>;
+}
+
+const DURACION_MS = 600;
+
+/**
+ * El número sube (o baja) hasta su valor en vez de saltar: se entiende que
+ * cambió y cuánto. Con "reducir movimiento" en el celular, salta directo.
+ */
+function useContador(objetivo: number, activo: boolean): number {
+  const [mostrado, setMostrado] = useState(objetivo);
+  const desde = useRef(objetivo);
+
+  useEffect(() => {
+    if (!activo || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      desde.current = objetivo;
+      const id = requestAnimationFrame(() => setMostrado(objetivo));
+      return () => cancelAnimationFrame(id);
+    }
+    const inicio = performance.now();
+    const origen = desde.current;
+    let id = 0;
+    const paso = (ahora: number) => {
+      const t = Math.min(1, (ahora - inicio) / DURACION_MS);
+      const curva = 1 - Math.pow(1 - t, 4); // ease-out-quart
+      const v = origen + (objetivo - origen) * curva;
+      setMostrado(v);
+      if (t < 1) id = requestAnimationFrame(paso);
+      else desde.current = objetivo;
+    };
+    id = requestAnimationFrame(paso);
+    return () => {
+      cancelAnimationFrame(id);
+      desde.current = objetivo;
+    };
+  }, [objetivo, activo]);
+
+  return activo ? mostrado : objetivo;
 }
 
 export function BotonOjo({ className = "" }: { className?: string }) {

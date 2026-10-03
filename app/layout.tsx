@@ -1,6 +1,17 @@
 import type { Metadata, Viewport } from "next";
+import { Bricolage_Grotesque, Figtree } from "next/font/google";
 import { RegistrarSW } from "@/components/PWA";
 import "./globals.css";
+
+// Las dos se sirven desde la app (next/font): sin pedido a Google al abrir,
+// y la PWA las tiene aunque no haya conexión.
+const figtree = Figtree({ subsets: ["latin"], variable: "--font-figtree", display: "swap" });
+const bricolage = Bricolage_Grotesque({
+  subsets: ["latin"],
+  variable: "--font-bricolage",
+  display: "swap",
+  axes: ["opsz", "wdth"],
+});
 
 export const metadata: Metadata = {
   title: "Dinerillo",
@@ -23,7 +34,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#1f4b6e",
+  themeColor: "#1d52de",
   width: "device-width",
   initialScale: 1,
   // Sin maximumScale: bloquear el zoom rompe la accesibilidad.
@@ -32,7 +43,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es-AR">
+    <html lang="es-AR" className={`${figtree.variable} ${bricolage.variable}`}>
       <body>
         {children}
         <RegistrarSW />

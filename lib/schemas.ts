@@ -146,8 +146,11 @@ const moneda = z
   .toUpperCase()
   .regex(/^[A-Z]{3}$/, "La moneda va como código de tres letras, por ejemplo USD");
 
+const emoji = z.string().trim().regex(/^[a-z0-9-]{0,30}$/, "Emoji inválido").default("");
+
 export const ingresoSchema = z.object({
   nombre: z.string().trim().min(1, "Ponele un nombre al ingreso").max(60),
+  emoji,
   moneda: moneda.default("ARS"),
   nota: z.string().trim().max(500).default(""),
   orden: numero("Orden", 0, 999).default(0),
@@ -167,6 +170,7 @@ export const ingresoCobroSchema = z.object({
 export const categoriaSchema = z.object({
   nombre: z.string().trim().min(1, "Ponele un nombre a la categoría").max(40),
   color: numero("Color", 1, 8).default(1),
+  emoji,
   orden: numero("Orden", 0, 999).default(0),
 });
 

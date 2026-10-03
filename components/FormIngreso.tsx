@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { Emoji } from "@/components/Emoji";
+import { ElegirEmoji } from "@/components/ElegirEmoji";
 import { avisar } from "@/components/Toast";
 import { Aviso, Boton, Campo, Input, Panel, Select } from "@/components/ui";
+import { emojiDe } from "@/lib/emoji";
 import { MONEDAS } from "@/lib/schemas";
 import type { Ingreso } from "@/lib/types";
 import { enviar } from "@/lib/useData";
@@ -39,6 +42,10 @@ export function FormIngreso({
   const [nombre, setNombre] = useState(ingreso?.nombre ?? "");
   const [moneda, setMoneda] = useState(ingreso?.moneda ?? "ARS");
   const [nota, setNota] = useState(ingreso?.nota ?? "");
+  // Vacío = se sugiere por el nombre mientras lo escribís.
+  const [emoji, setEmoji] = useState(ingreso?.emoji ?? "");
+  const [eligiendo, setEligiendo] = useState(false);
+  const emojiVisible = emojiDe(emoji, nombre, "bolsa-plata");
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
 
@@ -48,7 +55,7 @@ export function FormIngreso({
     if (!nombre.trim()) return setError("Ponele un nombre.");
     setError("");
     setGuardando(true);
-    const cuerpo = { nombre: nombre.trim(), moneda, nota: nota.trim() };
+    const cuerpo = { nombre: nombre.trim(), moneda, nota: nota.trim(), emoji: emojiVisible };
     let idNuevo = "";
     if (ingreso) {
       const r = await enviar("/api/ingresos", "PATCH", { ...cuerpo, id: ingreso.id });
@@ -96,15 +103,25 @@ export function FormIngreso({
       }
     >
       <form id={ID_FORM} onSubmit={guardar} className="flex flex-col gap-4">
-        <Campo label="Nombre" hint="Como lo reconozcas: “Sueldo”, “Consultoría”, “Redes”.">
-          <Input
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-            maxLength={60}
-            autoFocus={!ingreso}
-            required
-          />
-        </Campo>
+        <div className="flex items-end gap-3">
+          <button
+            type="button"
+            onClick={() => setEligiendo(true)}
+            aria-label="Cambiar el emoji"
+            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-celeste-claro transition-transform active:scale-90"
+          >
+            <Emoji nombre={emojiVisible} tamano="lg" />
+          </button>
+          <Campo label="Nombre" hint="Como lo reconozcas: “Sueldo”, “Consultoría”, “Redes”." className="flex-1">
+            <Input
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              maxLength={60}
+              autoFocus={!ingreso}
+              required
+            />
+          </Campo>
+        </div>
         <Campo
           label="Moneda en la que cobrás"
           hint={
@@ -125,6 +142,15 @@ export function FormIngreso({
           <Input value={nota} onChange={(e) => setNota(e.target.value)} maxLength={500} />
         </Campo>
       </form>
+      {eligiendo && (
+        <ElegirEmoji
+          abierto
+          cerrar={() => setEligiendo(false)}
+          actual={emojiVisible}
+          titulo="Emoji del ingreso"
+          alElegir={setEmoji}
+        />
+      )}
     </Panel>
   );
 }

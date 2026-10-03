@@ -2,29 +2,43 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Asistente } from "@/components/Asistente";
-import { colorCategoria, PuntoCategoria } from "@/components/Categorias";
+import { Asistente, Atajo } from "@/components/Asistente";
+import { colorCategoria } from "@/components/Categorias";
+import { Emoji } from "@/components/Emoji";
 import { FormMovimiento } from "@/components/FormMovimiento";
 import { IngresosVsGastos } from "@/components/Graficos";
-import { IconoDivision, IconoFlecha, IconoGastos, IconoIngresos } from "@/components/iconos";
+import { IconoFlecha } from "@/components/iconos";
 import { Monto, usePrivado } from "@/components/Privado";
 import { SelectorMes } from "@/components/SelectorMes";
 import { Shell } from "@/components/Shell";
 import { Aviso, BarraParte, Card, Cargando } from "@/components/ui";
-import type { TonoAviso } from "@/lib/finanzas";
+import type { Aviso as AvisoMes } from "@/lib/finanzas";
 import { periodoLargo, plata } from "@/lib/format";
 import { useFinanzas } from "@/lib/useFinanzas";
 
 // La pantalla de todos los días. Arriba el número que importa (cuánto te
-// quedó), después lo que pide hacer algo y al final el contexto. Nada de
-// felicitaciones ni confeti: los números se leen solos.
+// quedó), después cargar algo, lo que pide hacer algo y al final el contexto.
+// La onda está en el color, los emojis y el movimiento; los números se leen
+// solos y no se festeja cada cosa.
 
-const TONO_AVISO: Record<TonoAviso, string> = {
-  peligro: "bg-peligro",
-  espera: "bg-espera",
-  acento: "bg-acento",
-  ok: "bg-ok",
+/** El emoji de cada aviso, por el tipo que dice su id. */
+function emojiAviso(a: AvisoMes): string {
+  if (a.id.startsWith("mora")) return "alerta";
+  if (a.id.startsWith("cobrar")) return "llave";
+  if (a.id.startsWith("aumento")) return "grafico";
+  if (a.id.startsWith("division")) return "corazones";
+  return "calendario";
+}
+
+const EMOJI_INSIGHT: Record<string, string> = {
+  ritmo: "cohete",
+  top: "trofeo",
+  crecio: "grafico",
+  fuente: "bolsa-plata",
 };
+
+/** Los montos de un texto, tapados cuando el ojito está cerrado. */
+const tapar = (texto: string, oculto: boolean) => (oculto ? texto.replace(/\$ [\d.]+/g, "$ ••••") : texto);
 
 export default function Inicio() {
   const f = useFinanzas();
@@ -49,99 +63,109 @@ export default function Inicio() {
   const r = f.resumen;
   const tasa = r.tasaAhorro;
   const llega = tasa !== null && tasa * 100 >= r.ahorroPct;
+  const avance = Math.max(0, Math.min(100, ((tasa ?? 0) * 100 * 100) / Math.max(r.ahorroPct, 1)));
   const nombre = f.data.sesion.usuario;
+  const ingresos = r.ingresos.lineas.filter((l) => l.pesos > 0);
 
   return (
     <Shell>
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-lg font-semibold tracking-tight">Hola, {nombre}</h1>
-          <SelectorMes />
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+          <h1 className="titulo text-2xl font-bold">Hola, {nombre}</h1>
+          <SelectorMes className="-mx-2" />
         </div>
 
         {/* El número del mes */}
-        <section className="rounded-2xl bg-acento px-5 pb-5 pt-5 text-white">
-          <p className="text-xs font-medium text-white/75">Te quedó en {periodoLargo(f.mes)}</p>
-          <p className="tabular mt-1 text-4xl font-semibold tracking-tight sm:text-5xl">
-            <Monto valor={r.quedo} />
+        <section className="relative overflow-hidden rounded-2xl bg-acento px-5 pb-5 pt-5 text-white">
+          {/* El emoji acompaña cómo viene el mes; queda de fondo, no compite con el número. */}
+          <Emoji
+            nombre={r.quedo >= 0 ? "bolsa-plata" : "plata-vuela"}
+            tamano="xxl"
+            className="pop pointer-events-none absolute -right-2 -top-1 h-24 w-24 rotate-12 opacity-95"
+          />
+          <p className="text-sm font-medium text-white/80">Te quedó en {periodoLargo(f.mes)}</p>
+          <p className="numero mt-2 text-[2.75rem] font-extrabold sm:text-6xl">
+            <Monto valor={r.quedo} animado />
           </p>
 
-          <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
-            <Link href="/ingresos" className="rounded-xl bg-white/10 px-3 py-2.5 hover:bg-white/15">
-              <p className="text-white/70">Entró</p>
-              <p className="tabular mt-0.5 text-base font-semibold">
+          <div className="mt-5 grid grid-cols-2 gap-2.5">
+            <Link
+              href="/ingresos"
+              className="rounded-xl bg-white/12 px-3.5 py-3 transition-colors hover:bg-white/18"
+            >
+              <p className="flex items-center gap-1.5 text-xs font-medium text-white/80">
+                <Emoji nombre="grafico" tamano="xs" /> Entró
+              </p>
+              <p className="numero mt-1 text-lg font-bold">
                 <Monto valor={r.ingresos.total} />
               </p>
             </Link>
-            <Link href="/gastos" className="rounded-xl bg-white/10 px-3 py-2.5 hover:bg-white/15">
-              <p className="text-white/70">Salió</p>
-              <p className="tabular mt-0.5 text-base font-semibold">
+            <Link
+              href="/gastos"
+              className="rounded-xl bg-white/12 px-3.5 py-3 transition-colors hover:bg-white/18"
+            >
+              <p className="flex items-center gap-1.5 text-xs font-medium text-white/80">
+                <Emoji nombre="plata-vuela" tamano="xs" /> Salió
+              </p>
+              <p className="numero mt-1 text-lg font-bold">
                 <Monto valor={r.gastos.total} />
               </p>
             </Link>
           </div>
 
           {r.ingresos.total > 0 && (
-            <div className="mt-4">
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/20" role="presentation">
+            <div className="mt-5">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-white/20" role="presentation">
                 <div
-                  className={`h-full rounded-full ${llega ? "bg-white" : "bg-white/60"}`}
-                  // Lleno = llegaste al ahorro sugerido.
-                  style={{ width: `${Math.max(0, Math.min(100, ((tasa ?? 0) * 100 * 100) / Math.max(r.ahorroPct, 1)))}%` }}
+                  // Lleno = llegaste al ahorro que te propusiste. En lima cuando llegás.
+                  className={`h-full rounded-full transition-[width] duration-700 ease-[var(--ease-quart)] ${
+                    llega ? "bg-lima" : "bg-celeste"
+                  }`}
+                  style={{ width: `${avance}%` }}
                 />
               </div>
-              <p className="mt-1.5 text-[11px] text-white/80">
+              <p className="mt-2 flex items-center gap-1.5 text-xs text-white/90">
+                {llega && <Emoji nombre="chispas" tamano="xs" />}
                 {oculto
                   ? `Ahorro sugerido ${r.ahorroPct}%`
-                  : tasa !== null && tasa > 0
-                    ? `Ahorraste ${Math.round(tasa * 100)}% · sugerido ${r.ahorroPct}%, ${plata(r.ahorroSugerido)}`
-                    : `Este mes salió más de lo que entró · sugerido ${r.ahorroPct}%`}
+                  : llega
+                    ? `¡Llegaste! Guardaste el ${Math.round((tasa ?? 0) * 100)}%, la meta era ${r.ahorroPct}%`
+                    : tasa !== null && tasa > 0
+                      ? `Vas guardando ${Math.round(tasa * 100)}% · meta ${r.ahorroPct}%, ${plata(r.ahorroSugerido)}`
+                      : `Este mes salió más de lo que entró · meta ${r.ahorroPct}%`}
               </p>
             </div>
           )}
         </section>
 
-        {/* Atajos de carga */}
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            { label: "Gasto", Icono: IconoGastos, onClick: () => setCargar("propio") },
-            { label: "Compartido", Icono: IconoDivision, onClick: () => setCargar("compartido") },
-            { label: "Ingreso", Icono: IconoIngresos, href: "/ingresos" },
-          ].map(({ label, Icono, onClick, href }) => {
-            const clase =
-              "flex flex-col items-center gap-1.5 rounded-xl border border-borde bg-papel px-2 py-3 text-xs font-medium transition-transform active:scale-[0.97] hover:bg-fondo";
-            const contenido = (
-              <>
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-acento-claro text-acento">
-                  <Icono className="h-5 w-5" />
-                </span>
-                + {label}
-              </>
-            );
-            return href ? (
-              <Link key={label} href={href} className={clase}>
-                {contenido}
-              </Link>
-            ) : (
-              <button key={label} type="button" onClick={onClick} className={clase}>
-                {contenido}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Dictar o subir una factura: abre el formulario que corresponda */}
-        <Asistente modo="libre" className="[&>*]:flex-1" />
+        {/* Cargar algo: a un toque */}
+        <Asistente
+          modo="libre"
+          variante="atajos"
+          antes={
+            <>
+              <Atajo emoji="tarjeta" onClick={() => setCargar("propio")}>
+                Gasto
+              </Atajo>
+              <Atajo emoji="corazones" onClick={() => setCargar("compartido")}>
+                Compartido
+              </Atajo>
+            </>
+          }
+        />
 
         {/* Lo que pide hacer algo */}
         {f.avisos.length > 0 && (
-          <Card titulo="Pendientes">
-            <ul className="divide-y divide-linea">
+          <Card titulo="Para hacer">
+            <ul className="lista-entra divide-y divide-linea">
               {f.avisos.slice(0, 5).map((a) => (
                 <li key={a.id}>
-                  <Link href={a.href} className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-fondo sm:px-5">
-                    <span className={`h-2 w-2 shrink-0 rounded-full ${TONO_AVISO[a.tono]}`} aria-hidden />
-                    <span className="min-w-0 flex-1">{oculto ? a.texto.replace(/\$ [\d.]+/g, "$ ••••") : a.texto}</span>
+                  <Link
+                    href={a.href}
+                    className="flex items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-celeste-claro sm:px-5"
+                  >
+                    <Emoji nombre={emojiAviso(a)} tamano="md" />
+                    <span className="min-w-0 flex-1">{tapar(a.texto, oculto)}</span>
                     <IconoFlecha className="text-tenue" />
                   </Link>
                 </li>
@@ -152,16 +176,17 @@ export default function Inicio() {
 
         {/* Para entender el mes */}
         {f.insights.length > 0 && (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
             {f.insights.map((i) => (
-              <div key={i.id} className="rounded-xl border border-borde bg-papel px-3.5 py-3">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-tenue">{i.titulo}</p>
-                <p className="tabular mt-1 truncate text-base font-semibold tracking-tight">
+              <div key={i.id} className="rounded-2xl bg-celeste-claro px-4 py-3.5">
+                <p className="flex items-center gap-1.5 text-xs font-semibold text-suave">
+                  <Emoji nombre={EMOJI_INSIGHT[i.id] ?? "chispas"} tamano="sm" />
+                  {i.titulo}
+                </p>
+                <p className="numero mt-2 truncate text-xl font-bold">
                   {oculto && i.valor.startsWith("$") ? "$ ••••" : i.valor}
                 </p>
-                <p className="mt-1 text-[11px] leading-snug text-suave">
-                  {oculto ? i.detalle.replace(/\$ [\d.]+/g, "$ ••••") : i.detalle}
-                </p>
+                <p className="mt-1 text-xs leading-snug text-suave">{tapar(i.detalle, oculto)}</p>
               </div>
             ))}
           </div>
@@ -169,20 +194,26 @@ export default function Inicio() {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Card titulo="De dónde vino">
-            {r.ingresos.lineas.filter((l) => l.pesos > 0).length === 0 ? (
-              <p className="px-4 py-6 text-center text-xs text-tenue sm:px-5">
-                Nada cargado este mes.{" "}
-                <Link href="/ingresos" className="font-medium text-acento">Cargar un ingreso</Link>
-              </p>
+            {ingresos.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 px-4 py-6 text-center text-sm text-suave sm:px-5">
+                <Emoji nombre="bolsa-plata" tamano="xl" />
+                Nada cargado este mes.
+                <Link href="/ingresos" className="font-semibold text-acento">
+                  Cargar un ingreso
+                </Link>
+              </div>
             ) : (
-              <ul className="flex flex-col gap-3 px-4 py-4 sm:px-5">
-                {r.ingresos.lineas.filter((l) => l.pesos > 0).map((l) => (
+              <ul className="lista-entra flex flex-col gap-3.5 px-4 py-4 sm:px-5">
+                {ingresos.map((l) => (
                   <li key={l.id} className="flex flex-col gap-1.5">
-                    <div className="flex items-center justify-between gap-2 text-sm">
-                      <span className="truncate">{l.nombre}</span>
-                      <span className="tabular font-semibold"><Monto valor={l.pesos} /></span>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Emoji nombre={l.emoji} tamano="sm" />
+                      <span className="min-w-0 flex-1 truncate font-medium">{l.nombre}</span>
+                      <span className="tabular font-semibold">
+                        <Monto valor={l.pesos} />
+                      </span>
                     </div>
-                    <BarraParte parte={l.pesos} total={r.ingresos.total} color="var(--color-serie-3)" />
+                    <BarraParte parte={l.pesos} total={r.ingresos.total} color="var(--color-acento)" />
                   </li>
                 ))}
               </ul>
@@ -191,20 +222,23 @@ export default function Inicio() {
 
           <Card titulo="En qué se fue">
             {r.gastos.categorias.length === 0 ? (
-              <p className="px-4 py-6 text-center text-xs text-tenue sm:px-5">
-                Sin gastos este mes.{" "}
-                <button type="button" onClick={() => setCargar("propio")} className="font-medium text-acento">
+              <div className="flex flex-col items-center gap-2 px-4 py-6 text-center text-sm text-suave sm:px-5">
+                <Emoji nombre="brote" tamano="xl" />
+                Sin gastos este mes.
+                <button type="button" onClick={() => setCargar("propio")} className="font-semibold text-acento">
                   Cargar uno
                 </button>
-              </p>
+              </div>
             ) : (
-              <ul className="flex flex-col gap-3 px-4 py-4 sm:px-5">
+              <ul className="lista-entra flex flex-col gap-3.5 px-4 py-4 sm:px-5">
                 {r.gastos.categorias.slice(0, 5).map((c) => (
                   <li key={c.id || "sin"} className="flex flex-col gap-1.5">
                     <div className="flex items-center gap-2 text-sm">
-                      <PuntoCategoria color={c.color} />
-                      <span className="min-w-0 flex-1 truncate">{c.nombre}</span>
-                      <span className="tabular font-semibold"><Monto valor={c.total} /></span>
+                      <Emoji nombre={c.emoji} tamano="sm" />
+                      <span className="min-w-0 flex-1 truncate font-medium">{c.nombre}</span>
+                      <span className="tabular font-semibold">
+                        <Monto valor={c.total} />
+                      </span>
                     </div>
                     <BarraParte parte={c.total} total={r.gastos.total} color={colorCategoria(c.color)} />
                   </li>

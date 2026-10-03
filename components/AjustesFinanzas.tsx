@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { PuntoCategoria, proximoColor } from "@/components/Categorias";
+import { emojiCategoria, PuntoCategoria, proximoColor } from "@/components/Categorias";
+import { Emoji } from "@/components/Emoji";
+import { ElegirEmoji } from "@/components/ElegirEmoji";
+import { sugerirEmoji } from "@/lib/emoji";
 import { avisar } from "@/components/Toast";
 import { Aviso, Boton, Campo, Card, Input, InputPct } from "@/components/ui";
 import { preferencias } from "@/lib/finanzas";
@@ -94,6 +97,7 @@ function Categorias({
 }) {
   const [nueva, setNueva] = useState("");
   const [editando, setEditando] = useState<string | null>(null);
+  const [eligiendoEmoji, setEligiendoEmoji] = useState<Categoria | null>(null);
   const [nombre, setNombre] = useState("");
 
   async function crear() {
@@ -102,6 +106,7 @@ function Categorias({
     const r = await enviar("/api/categorias", "POST", {
       nombre: n,
       color: proximoColor(todas),
+      emoji: sugerirEmoji(n),
       orden: categorias.length,
     });
     if (!r.ok) return avisar(r.error);
@@ -114,6 +119,12 @@ function Categorias({
     setEditando(null);
     if (!n || n === c.nombre) return;
     const r = await enviar("/api/categorias", "PATCH", { id: c.id, nombre: n });
+    if (!r.ok) return avisar(r.error);
+    await recargar();
+  }
+
+  async function cambiarEmoji(c: Categoria, emoji: string) {
+    const r = await enviar("/api/categorias", "PATCH", { id: c.id, emoji });
     if (!r.ok) return avisar(r.error);
     await recargar();
   }
@@ -137,19 +148,19 @@ function Categorias({
   return (
     <Card
       titulo="Categorías"
-      nota="Las mismas para tus gastos y para los compartidos. Tocá el punto para cambiarle el color."
+      nota="Las mismas para tus gastos y para los compartidos. Tocá el emoji para cambiarlo y el punto para cambiar el color."
     >
       {categorias.length > 0 && (
         <ul className="divide-y divide-linea">
           {categorias.map((c) => (
-            <li key={c.id} className="flex items-center gap-3 px-4 py-2 sm:px-5">
+            <li key={c.id} className="flex items-center gap-2 px-4 py-2 sm:px-5">
               <button
                 type="button"
-                onClick={() => cambiarColor(c)}
-                aria-label={`Cambiar el color de ${c.nombre}`}
-                className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-fondo"
+                onClick={() => setEligiendoEmoji(c)}
+                aria-label={`Cambiar el emoji de ${c.nombre}`}
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-celeste-claro transition-transform active:scale-90"
               >
-                <PuntoCategoria color={c.color} />
+                <Emoji nombre={emojiCategoria(c)} tamano="md" />
               </button>
               {editando === c.id ? (
                 <input
@@ -176,6 +187,14 @@ function Categorias({
                   {c.nombre}
                 </button>
               )}
+              <button
+                type="button"
+                onClick={() => cambiarColor(c)}
+                aria-label={`Cambiar el color de ${c.nombre}`}
+                className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-fondo"
+              >
+                <PuntoCategoria color={c.color} />
+              </button>
               <Boton variante="peligro" tamano="sm" onClick={() => borrar(c)}>
                 Borrar
               </Boton>
@@ -195,6 +214,15 @@ function Categorias({
           Agregar
         </Boton>
       </div>
+      {eligiendoEmoji && (
+        <ElegirEmoji
+          abierto
+          cerrar={() => setEligiendoEmoji(null)}
+          actual={emojiCategoria(eligiendoEmoji)}
+          titulo={`Emoji de ${eligiendoEmoji.nombre}`}
+          alElegir={(e) => cambiarEmoji(eligiendoEmoji, e)}
+        />
+      )}
     </Card>
   );
 }

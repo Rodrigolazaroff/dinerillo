@@ -99,6 +99,7 @@ console.log("\n=== el ritmo del mes ===");
   const ritmo = f.insights(e, "2026-10", "2026-10-10").find((i) => i.id === "ritmo");
   chequeo("100k en 10 días → 310k en 31", ritmo.valor, "$ 310.000");
   chequeo("en un mes pasado no hay ritmo", f.insights(e, "2026-10", "2026-11-05").some((i) => i.id === "ritmo"), false);
+  chequeo("antes del día 10 no hay ritmo", f.insights(e, "2026-10", "2026-10-03").some((i) => i.id === "ritmo"), false);
 }
 
 console.log(fallas ? `\n${fallas} FALLAS` : "\nTODO OK: las cuentas del mes dan lo que tienen que dar.");

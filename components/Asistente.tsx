@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Emoji } from "@/components/Emoji";
 import { FormCobroIngreso } from "@/components/FormCobroIngreso";
 import { FormGasto } from "@/components/FormGasto";
 import { FormMovimiento } from "@/components/FormMovimiento";
@@ -107,7 +108,50 @@ async function interpretar(
 
 // ── la pieza ────────────────────────────────────────────────────────
 
-export function Asistente({ modo, className = "" }: { modo: Modo; className?: string }) {
+/**
+ * Una tarjetita de acción con su emoji 3D: los atajos del Inicio. Exportada
+ * para que la pantalla sume los suyos ("+ Gasto") con el mismo formato.
+ */
+export function Atajo({
+  emoji,
+  children,
+  onClick,
+  disabled,
+  etiqueta,
+}: {
+  emoji: string;
+  children: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  etiqueta?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={etiqueta}
+      className="flex flex-col items-center gap-1.5 rounded-2xl bg-papel px-1 pb-2.5 pt-3 text-xs font-semibold text-tinta ring-1 ring-borde transition-[transform,background-color,box-shadow] duration-150 ease-[var(--ease-quart)] hover:bg-celeste-claro hover:ring-celeste active:scale-[0.95] disabled:opacity-60"
+    >
+      <Emoji nombre={emoji} tamano="lg" className="transition-transform duration-200 ease-[var(--ease-quart)] [button:hover>&]:-rotate-6 [button:hover>&]:scale-110" />
+      {children}
+    </button>
+  );
+}
+
+export function Asistente({
+  modo,
+  className = "",
+  variante = "botones",
+  antes,
+}: {
+  modo: Modo;
+  className?: string;
+  /** "atajos": tarjetitas con emoji, en grilla (el Inicio). */
+  variante?: "botones" | "atajos";
+  /** Atajos propios de la pantalla, que van antes de Dictar y Factura. */
+  antes?: ReactNode;
+}) {
   const { data, recargar } = useData();
   const [mes] = useMes();
   const router = useRouter();
@@ -181,9 +225,20 @@ export function Asistente({ modo, className = "" }: { modo: Modo; className?: st
 
   return (
     <>
+      {variante === "atajos" ? (
+        <div className={`grid grid-cols-4 gap-2 ${className}`}>
+          {antes}
+          <Atajo emoji="microfono" onClick={() => setDictando(true)} disabled={ocupado} etiqueta="Cargar dictando">
+            {pensando === "audio" ? "Entendiendo…" : "Dictar"}
+          </Atajo>
+          <Atajo emoji="recibo" onClick={() => archivoRef.current?.click()} disabled={ocupado} etiqueta="Cargar desde una factura">
+            {pensando === "factura" ? "Leyendo…" : "Factura"}
+          </Atajo>
+        </div>
+      ) : (
       <div className={`flex gap-2 ${className}`}>
         <Boton variante="secundario" onClick={() => setDictando(true)} disabled={ocupado} aria-label="Cargar dictando">
-          <IconoMicrofono />
+          <Emoji nombre="microfono" tamano="sm" />
           {pensando === "audio" ? "Entendiendo…" : "Dictar"}
         </Boton>
         <Boton
@@ -192,17 +247,18 @@ export function Asistente({ modo, className = "" }: { modo: Modo; className?: st
           disabled={ocupado}
           aria-label="Cargar desde una factura"
         >
-          <IconoFactura />
+          <Emoji nombre="recibo" tamano="sm" />
           {pensando === "factura" ? "Leyendo…" : "Factura"}
         </Boton>
-        <input
-          ref={archivoRef}
-          type="file"
-          accept="application/pdf,image/*"
-          className="hidden"
-          onChange={(e) => alElegirArchivo(e.target.files?.[0])}
-        />
       </div>
+      )}
+      <input
+        ref={archivoRef}
+        type="file"
+        accept="application/pdf,image/*"
+        className="hidden"
+        onChange={(e) => alElegirArchivo(e.target.files?.[0])}
+      />
 
       {dictando && (
         <PanelDictado

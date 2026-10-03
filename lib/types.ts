@@ -135,6 +135,7 @@ export interface Ingreso {
   id: string;
   nombre: string;
   moneda: string;            // ISO 4217: ARS, USD, EUR
+  emoji: string;             // nombre en lib/emoji.ts; vacío = se sugiere
   nota: string;
   orden: number;
   archivado_at: string;      // vacío = activa
@@ -160,6 +161,7 @@ export interface Categoria {
   id: string;
   nombre: string;
   color: number;             // 1..8, el slot de --color-serie-N
+  emoji: string;             // nombre en lib/emoji.ts; vacío = se sugiere
   orden: number;
   created_at: string;
   deleted_at: string;

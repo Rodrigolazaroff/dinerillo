@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { BurbujaEmoji, Emoji } from "@/components/Emoji";
 import { FormIngreso } from "@/components/FormIngreso";
 import { IconoFlecha, IconoMas } from "@/components/iconos";
 import { Monto } from "@/components/Privado";
 import { SelectorMes } from "@/components/SelectorMes";
 import { Shell } from "@/components/Shell";
 import { Aviso, Boton, Card, Cargando, Vacio } from "@/components/ui";
+import { emojiDe } from "@/lib/emoji";
 import { ID_ALQUILERES } from "@/lib/finanzas";
 import { enMoneda } from "@/lib/format";
 import { useFinanzas } from "@/lib/useFinanzas";
@@ -47,16 +49,18 @@ export default function Ingresos() {
     <Shell>
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-lg font-semibold tracking-tight">Ingresos</h1>
+          <h1 className="titulo text-2xl font-bold">Ingresos</h1>
           <SelectorMes />
         </div>
 
-        <section className="rounded-2xl bg-acento px-5 py-5 text-white">
-          <p className="text-xs font-medium text-white/75">Entró este mes</p>
-          <p className="tabular mt-1 text-4xl font-semibold tracking-tight">
-            <Monto valor={resumen.ingresos.total} />
+        <section className="relative overflow-hidden rounded-2xl bg-acento px-5 py-5 text-white">
+          <Emoji nombre="bolsa-plata" tamano="xxl" className="pop pointer-events-none absolute -right-1 -top-1 h-20 w-20 rotate-12" />
+          <p className="text-sm font-medium text-white/80">Entró este mes</p>
+          <p className="numero mt-2 text-[2.6rem] font-extrabold">
+            <Monto valor={resumen.ingresos.total} animado />
           </p>
-          <p className="mt-3 text-xs text-white/80">
+          <p className="mt-3 flex items-center gap-1.5 text-xs text-white/90">
+            <Emoji nombre="brote" tamano="xs" />
             Ahorro sugerido {prefs.ahorroPct}% ·{" "}
             <span className="tabular font-semibold text-white">
               <Monto valor={resumen.ahorroSugerido} />
@@ -75,6 +79,7 @@ export default function Ingresos() {
         >
           {!hayAlquileres && activas.length === 0 ? (
             <Vacio
+              emoji="bolsa-plata"
               titulo="Todavía no cargaste ingresos"
               accion={
                 <Boton onClick={() => setNuevo(true)}>
@@ -90,7 +95,8 @@ export default function Ingresos() {
             <ul className="divide-y divide-linea">
               {hayAlquileres && (
                 <li>
-                  <Link href="/alquileres" className="flex items-center gap-3 px-4 py-3 hover:bg-fondo sm:px-5">
+                  <Link href="/alquileres" className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-celeste-claro sm:px-5">
+                    <BurbujaEmoji nombre="llave" tono="azul" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">Alquileres</p>
                       <p className="text-[11px] text-tenue">
@@ -114,7 +120,8 @@ export default function Ingresos() {
                 const l = delMes.get(f.id);
                 return (
                   <li key={f.id}>
-                    <Link href={`/ingresos/${f.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-fondo sm:px-5">
+                    <Link href={`/ingresos/${f.id}`} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-celeste-claro sm:px-5">
+                      <BurbujaEmoji nombre={emojiDe(f.emoji, f.nombre, "bolsa-plata")} tono={l ? "lima" : "celeste"} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">{f.nombre}</p>
                         <p className="text-[11px] text-tenue">

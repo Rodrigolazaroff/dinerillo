@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Asistente } from "@/components/Asistente";
-import { colorCategoria, PuntoCategoria } from "@/components/Categorias";
+import { colorCategoria, emojiCategoria } from "@/components/Categorias";
+import { BurbujaEmoji, Emoji } from "@/components/Emoji";
 import { FormMovimiento } from "@/components/FormMovimiento";
 import { IconoDivision, IconoFlecha, IconoMas } from "@/components/iconos";
 import { Monto } from "@/components/Privado";
@@ -58,14 +59,15 @@ export default function Gastos() {
     <Shell>
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-lg font-semibold tracking-tight">Gastos</h1>
+          <h1 className="titulo text-2xl font-bold">Gastos</h1>
           <SelectorMes />
         </div>
 
-        <section className="rounded-2xl border border-borde bg-papel px-5 py-5">
-          <p className="text-xs font-medium text-suave">Gastaste en {periodoLargo(mes)}</p>
-          <p className="tabular mt-1 text-4xl font-semibold tracking-tight">
-            <Monto valor={g.total} />
+        <section className="relative overflow-hidden rounded-2xl bg-celeste-claro px-5 py-5">
+          <Emoji nombre="plata-vuela" tamano="xxl" className="pop pointer-events-none absolute -right-1 -top-1 h-20 w-20 rotate-12" />
+          <p className="text-sm font-medium text-suave">Gastaste en {periodoLargo(mes)}</p>
+          <p className="numero mt-2 text-[2.6rem] font-extrabold text-tinta">
+            <Monto valor={g.total} animado />
           </p>
           <p className="mt-2 text-xs text-suave">
             Tuyos <span className="tabular font-medium text-tinta"><Monto valor={g.propios} /></span>
@@ -74,7 +76,7 @@ export default function Gastos() {
             <span className="tabular font-medium text-tinta"><Monto valor={g.compartidos} /></span>
           </p>
           {anterior && anterior.gastos.total > 0 && (
-            <p className={`mt-1 text-[11px] ${delta > 0 ? "text-espera" : "text-ok"}`}>
+            <p className={`mt-1.5 text-xs font-semibold ${delta > 0 ? "text-espera" : "text-ok"}`}>
               {delta > 0 ? "▲" : "▼"} <Monto valor={Math.abs(delta)} /> contra {periodoLargo(anterior.periodo)}
             </p>
           )}
@@ -94,8 +96,8 @@ export default function Gastos() {
               {g.categorias.map((c) => (
                 <li key={c.id || "sin"} className="flex flex-col gap-1.5">
                   <div className="flex items-center gap-2 text-sm">
-                    <PuntoCategoria color={c.color} />
-                    <span className="min-w-0 flex-1 truncate">{c.nombre}</span>
+                    <Emoji nombre={c.emoji} tamano="sm" />
+                    <span className="min-w-0 flex-1 truncate font-medium">{c.nombre}</span>
                     <span className="tabular font-semibold">
                       <Monto valor={c.total} />
                     </span>
@@ -118,9 +120,7 @@ export default function Gastos() {
               href="/division"
               className="flex items-center gap-3 border-b border-linea px-4 py-3 hover:bg-fondo sm:px-5"
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-acento-claro text-acento">
-                <IconoDivision className="h-5 w-5" />
-              </span>
+              <BurbujaEmoji nombre="corazones" tono="azul" />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">Gastos compartidos · mi parte</p>
                 <p className="text-[11px] text-tenue">
@@ -137,6 +137,7 @@ export default function Gastos() {
 
           {propios.length === 0 ? (
             <Vacio
+              emoji="brote"
               titulo={resumen.division.cantidad ? "No cargaste gastos tuyos este mes" : "Todavía no hay gastos este mes"}
               accion={
                 <Boton onClick={() => setNuevo(true)}>
@@ -164,7 +165,7 @@ export default function Gastos() {
                             onClick={() => setEditando(x)}
                             className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-fondo sm:px-5"
                           >
-                            <PuntoCategoria color={c && !c.deleted_at ? c.color : 0} />
+                            <BurbujaEmoji nombre={emojiCategoria(c)} />
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm">{x.descripcion}</p>
                               <p className="truncate text-[11px] text-tenue">

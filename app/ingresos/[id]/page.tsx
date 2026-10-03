@@ -4,12 +4,14 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { FormCobroIngreso } from "@/components/FormCobroIngreso";
+import { Emoji } from "@/components/Emoji";
 import { FormIngreso } from "@/components/FormIngreso";
 import { IconoMas } from "@/components/iconos";
 import { Monto } from "@/components/Privado";
 import { Shell } from "@/components/Shell";
 import { avisar } from "@/components/Toast";
 import { Aviso, Boton, Card, Cargando, Kpi, Vacio } from "@/components/ui";
+import { emojiDe } from "@/lib/emoji";
 import { enPesos } from "@/lib/finanzas";
 import { enMoneda, fechaDia, periodoLargo, sumarMeses } from "@/lib/format";
 import type { IngresoCobro } from "@/lib/types";
@@ -115,7 +117,8 @@ export default function DetalleIngreso() {
             ‹ Ingresos
           </Link>
           <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
-            <h1 className="text-lg font-semibold tracking-tight">
+            <h1 className="titulo flex items-center gap-2 text-2xl font-bold">
+              <Emoji nombre={emojiDe(fuente.emoji, fuente.nombre, "bolsa-plata")} tamano="lg" className="pop" />
               {fuente.nombre}
               {extranjera && (
                 <span className="ml-2 rounded-md bg-acento-claro px-1.5 py-0.5 align-middle text-[11px] font-semibold text-acento">

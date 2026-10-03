@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { Aviso, Boton, Campo, Input, Segmentado } from "@/components/ui";
+import { Emoji } from "@/components/Emoji";
 import { supabaseNavegador } from "@/lib/supabase/client";
 
 // Dos maneras de entrar: con Google, que es un toque, o con mail y contraseña.
@@ -102,12 +103,12 @@ function Formulario() {
     <main className="flex min-h-dvh flex-col items-center justify-center px-5 py-12">
       <div className="w-full max-w-xs">
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-acento text-2xl font-semibold text-white">
-            $
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-celeste-claro">
+            <Emoji nombre="moneda" tamano="xxl" className="pop h-14 w-14" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">Dinerillo</h1>
-            <p className="mt-1 text-xs text-suave">Tu plata del mes, en un solo lugar.</p>
+            <h1 className="titulo text-3xl font-extrabold text-acento">dinerillo</h1>
+            <p className="mt-1 text-sm text-suave">Tu plata del mes, en un solo lugar.</p>
           </div>
         </div>
 

@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import {
   IconoAjustes, IconoDivision, IconoGastos, IconoIngresos, IconoInicio,
 } from "@/components/iconos";
+import { Emoji } from "@/components/Emoji";
 import { BotonOjo } from "@/components/Privado";
 import { Toasts } from "@/components/Toast";
 
@@ -52,8 +53,9 @@ export function Shell({ children }: { children: ReactNode }) {
         className="no-print sticky top-0 z-30 -mx-4 flex items-center justify-between gap-3 border-b border-borde bg-fondo/90 px-4 py-2 backdrop-blur-sm sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-5 sm:backdrop-blur-none"
         style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }}
       >
-        <Link href="/" className="text-base font-semibold tracking-tight sm:text-lg">
-          Dinerillo
+        <Link href="/" className="flex items-center gap-1.5" aria-label="Dinerillo, inicio">
+          <Emoji nombre="moneda" tamano="md" />
+          <span className="titulo text-xl font-extrabold text-acento">dinerillo</span>
         </Link>
 
         <div className="flex shrink-0 items-center gap-0.5 text-xs text-suave">
@@ -78,17 +80,19 @@ export function Shell({ children }: { children: ReactNode }) {
       </header>
 
       {/* Navegación de escritorio */}
-      <nav className="no-print mb-6 hidden gap-1 sm:flex" aria-label="Navegación principal">
-        {LINKS.map(({ href, label }) => (
+      <nav className="no-print mb-6 hidden w-fit gap-1 rounded-full bg-celeste-claro p-1 sm:flex" aria-label="Navegación principal">
+        {LINKS.map(({ href, label, Icono }) => (
           <Link
             key={href}
             href={href}
-            className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+            aria-current={esActivo(href, pathname) ? "page" : undefined}
+            className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-[background-color,color,box-shadow] duration-200 ease-[var(--ease-quart)] ${
               esActivo(href, pathname)
-                ? "bg-acento text-white"
-                : "text-suave hover:bg-acento-claro hover:text-acento"
+                ? "bg-papel text-acento shadow-[0_1px_3px_oklch(0.24_0.06_264/0.12)]"
+                : "text-suave hover:text-tinta"
             }`}
           >
+            <Icono className="h-[18px] w-[18px]" />
             {label}
           </Link>
         ))}
@@ -112,8 +116,8 @@ export function Shell({ children }: { children: ReactNode }) {
                 key={href}
                 href={href}
                 aria-current={activo ? "page" : undefined}
-                className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                  activo ? "bg-acento-claro text-acento" : "text-suave hover:text-tinta"
+                className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                  activo ? "bg-acento text-white" : "bg-papel text-suave ring-1 ring-borde hover:text-tinta"
                 }`}
               >
                 {label}
@@ -141,12 +145,19 @@ export function Shell({ children }: { children: ReactNode }) {
                   href={href}
                   aria-label={label}
                   aria-current={activo ? "page" : undefined}
-                  className={`flex min-h-[56px] flex-col items-center justify-center gap-1 transition-[transform,color] duration-150 ease-[var(--ease-salida)] active:scale-[0.92] ${
+                  className={`flex min-h-[60px] flex-col items-center justify-center gap-1 transition-[transform,color] duration-150 ease-[var(--ease-quart)] active:scale-[0.92] ${
                     activo ? "text-acento" : "text-tenue"
                   }`}
                 >
-                  <Icono className={activo ? "scale-105" : ""} />
-                  <span className={`text-[10px] leading-none ${activo ? "font-semibold" : ""}`}>
+                  {/* La pestaña activa lleva una píldora celeste atrás del ícono. */}
+                  <span
+                    className={`flex h-8 w-14 items-center justify-center rounded-full transition-[background-color] duration-200 ease-[var(--ease-quart)] ${
+                      activo ? "bg-celeste-claro" : ""
+                    }`}
+                  >
+                    <Icono />
+                  </span>
+                  <span className={`text-[11px] leading-none ${activo ? "font-bold" : "font-medium"}`}>
                     {label}
                   </span>
                 </Link>

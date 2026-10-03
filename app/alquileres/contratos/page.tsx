@@ -232,7 +232,7 @@ export default function ContratosPage() {
       <div className="flex flex-col gap-4">
         <header className="flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-lg font-semibold tracking-tight">Contratos</h1>
+            <h1 className="titulo text-2xl font-bold">Contratos</h1>
             <p className="text-xs text-suave">
               Las condiciones las guarda cada contrato. Acá las cambiás sin tocar los demás.
             </p>

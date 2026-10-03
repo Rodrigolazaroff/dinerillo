@@ -99,6 +99,7 @@ const unIngreso = (f: Fila): Ingreso => ({
   ...base(f),
   nombre: txt(f.nombre),
   moneda: txt(f.moneda) || "ARS",
+  emoji: txt(f.emoji),
   nota: txt(f.nota),
   orden: num(f.orden),
   archivado_at: txt(f.archivado_at),
@@ -118,6 +119,7 @@ const unCategoria = (f: Fila): Categoria => ({
   ...base(f),
   nombre: txt(f.nombre),
   color: num(f.color) || 1,
+  emoji: txt(f.emoji),
   orden: num(f.orden),
 });
 
