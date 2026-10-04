@@ -178,7 +178,9 @@ export default function Gastos() {
                   <Emoji nombre="pensando" tamano="md" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">¿{s.descripcion.trim()} es fijo?</p>
-                    <p className="text-[11px] text-tenue">Se repite cada mes · {plata(s.monto)}</p>
+                    <p className="text-[11px] text-tenue">
+                      Se repite cada mes · {s.automatico ? plata(s.monto) : `≈ ${plata(s.monto)}, varía`}
+                    </p>
                   </div>
                   <Boton variante="secundario" tamano="sm" onClick={() => setFijoAbierto({ sugerencia: s })}>
                     Sí

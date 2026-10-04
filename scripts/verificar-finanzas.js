@@ -154,12 +154,19 @@ console.log("\n=== gastos fijos ===");
   const historial = {
     ...vacio,
     misGastos: [
-      gasto("Spotify", "2026-08", 4000), gasto("Spotify ", "2026-09", 4200),
+      gasto("Spotify", "2026-08", 4000), gasto("spotify", "2026-09", 4000),
+      // Mismo concepto, otro monto y otro nombre de mes: es la luz igual.
+      gasto("Luz agosto", "2026-08", 30000), gasto("Luz de septiembre", "2026-09", 50000),
       gasto("Regalo", "2026-09", 30000),
-      gasto("Super", "2026-08", 50000), gasto("super", "2026-09", 150000),
+      // El súper de todas las semanas no es un fijo.
+      gasto("Super", "2026-09", 50000), gasto("Super", "2026-09", 40000), gasto("super", "2026-09", 30000),
+      gasto("Super", "2026-08", 45000),
     ],
   };
-  chequeo("sugiere lo que se repite por lo mismo", f.sugerirFijos(historial, "2026-10-03").map((s) => s.descripcion), ["Spotify "]);
+  const sug = f.sugerirFijos(historial, "2026-10-03");
+  chequeo("sugiere la luz y Spotify, no el súper", sug.map((s) => s.descripcion), ["Luz de septiembre", "spotify"]);
+  chequeo("la luz varía: promedio y a confirmar", [sug[0].monto, sug[0].automatico], [40000, false]);
+  chequeo("Spotify es siempre igual: se carga solo", sug[1].automatico, true);
 }
 
 console.log(fallas ? `\n${fallas} FALLAS` : "\nTODO OK: las cuentas del mes dan lo que tienen que dar.");

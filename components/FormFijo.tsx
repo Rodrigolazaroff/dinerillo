@@ -42,7 +42,7 @@ export function FormFijo({
   const [monto, setMonto] = useState(base ? aCampo(base.monto) : "");
   const [dia, setDia] = useState(String(base?.dia ?? 1));
   const [categoria, setCategoria] = useState(base?.categoria_id ?? "");
-  const [automatico, setAutomatico] = useState(fijo?.automatico ?? true);
+  const [automatico, setAutomatico] = useState(fijo?.automatico ?? sugerencia?.automatico ?? true);
   const [compartido, setCompartido] = useState(base?.compartido ?? false);
   const [pago, setPago] = useState<QuienPago>(fijo?.pago ?? "yo");
   const [miPct, setMiPct] = useState(String(fijo?.mi_pct ?? miPctDefault));

@@ -332,27 +332,48 @@ export function fijosParaCargarSolos(e: Entradas, hoy: string): FijoDelMes[] {
 
 export interface SugerenciaFijo {
   descripcion: string;
+  /** El último si es siempre igual; el promedio si varía. */
   monto: number;
   categoria_id: string;
   dia: number;
   compartido: boolean;
+  /** Siempre el mismo monto: se puede cargar solo. Si varía, pide confirmar. */
+  automatico: boolean;
 }
 
-const normalizar = (s: string) =>
-  s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z ]/g, "").trim();
+// "Luz de octubre", "luz sept" y "LUZ" son el mismo concepto: se comparan sin
+// tildes, números, meses ni palabras de relleno.
+const MESES_Y_RELLENO = new Set([
+  "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre",
+  "setiembre", "octubre", "noviembre", "diciembre", "ene", "feb", "mar", "abr", "may", "jun",
+  "jul", "ago", "sep", "sept", "set", "oct", "nov", "dic", "mes", "de", "del", "la", "el", "los",
+  "las", "pago", "cuota",
+]);
+
+const concepto = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z ]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w && !MESES_Y_RELLENO.has(w))
+    .join(" ");
 
 /**
- * Lo que parece fijo y todavía no lo es: el mismo gasto en al menos dos de
- * los últimos tres meses, por un monto parecido. Sin IA: es contar, gratis y
- * sin mandar nada a ningún lado.
+ * Lo que parece fijo y todavía no lo es: el mismo concepto en al menos dos de
+ * los últimos tres meses, una o dos veces por mes (el súper de todas las
+ * semanas no es un fijo). El monto puede variar, como la luz: entonces se
+ * sugiere como variable, con el promedio. Sin IA: es contar, gratis y sin
+ * mandar nada a ningún lado.
  */
 export function sugerirFijos(e: Entradas, hoy: string): SugerenciaFijo[] {
   const desde = sumarMeses(hoy.slice(0, 7), -3);
-  const yaFijos = new Set(vivos(e.gastosFijos ?? []).map((f) => normalizar(f.descripcion)));
+  const yaFijos = new Set(vivos(e.gastosFijos ?? []).map((f) => concepto(f.descripcion)));
   const grupos = new Map<string, { g: MiGasto | DivGasto; compartido: boolean }[]>();
   const sumar = (g: MiGasto | DivGasto, compartido: boolean) => {
     if (g.fijo_id || g.periodo < desde) return;
-    const clave = normalizar(g.descripcion);
+    const clave = concepto(g.descripcion);
     if (!clave || yaFijos.has(clave)) return;
     grupos.set(clave, [...(grupos.get(clave) ?? []), { g, compartido }]);
   };
@@ -361,18 +382,20 @@ export function sugerirFijos(e: Entradas, hoy: string): SugerenciaFijo[] {
 
   const out: SugerenciaFijo[] = [];
   for (const xs of grupos.values()) {
-    const meses = new Set(xs.map((x) => x.g.periodo));
-    if (meses.size < 2) continue;
-    const montos = xs.map((x) => x.g.monto).sort((a, b) => a - b);
-    const mediana = montos[Math.floor(montos.length / 2)];
-    if (montos.some((m) => Math.abs(m - mediana) > mediana * 0.3)) continue;
+    const porMes = new Map<string, number>();
+    for (const x of xs) porMes.set(x.g.periodo, (porMes.get(x.g.periodo) ?? 0) + 1);
+    if (porMes.size < 2 || Math.max(...porMes.values()) > 2) continue;
+    const montos = xs.map((x) => x.g.monto);
+    const promedio = montos.reduce((a, m) => a + m, 0) / montos.length;
+    const fijo = Math.max(...montos) - Math.min(...montos) <= promedio * 0.05;
     const ultimo = [...xs].sort((a, b) => b.g.fecha.localeCompare(a.g.fecha))[0];
     out.push({
-      descripcion: ultimo.g.descripcion,
-      monto: ultimo.g.monto,
+      descripcion: ultimo.g.descripcion.trim(),
+      monto: fijo ? ultimo.g.monto : redondear(promedio, 0),
       categoria_id: ultimo.g.categoria_id,
       dia: Number(ultimo.g.fecha.slice(8, 10)) || 1,
       compartido: ultimo.compartido,
+      automatico: fijo,
     });
   }
   return out.sort((a, b) => b.monto - a.monto).slice(0, 3);

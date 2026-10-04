@@ -143,8 +143,9 @@ Lo que se paga todos los meses (`gastos_fijos`, migración 0006). Se crean desde
   `fijo_id` y un índice único impide cargar dos veces el mismo fijo en el mes.
 - **Monto que varía** (la luz): "Para hacer" pide confirmarlo tres días antes, con el
   promedio de los últimos tres meses como estimado.
-- **Sugerencias**: lo que se repite en dos de los últimos tres meses por un monto
-  parecido (`sugerirFijos`). Es contar, no IA: gratis y sin mandar datos a nadie.
+- **Sugerencias**: el mismo concepto ("Luz octubre" = "luz") en dos de los últimos tres
+  meses, una o dos veces por mes (`sugerirFijos`). Si el monto varía se sugiere como
+  variable, con el promedio. Es contar, no IA: gratis y sin mandar datos a nadie.
 
 ## Administración y errores
 
