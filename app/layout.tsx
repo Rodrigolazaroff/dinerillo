@@ -25,6 +25,18 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
   },
   formatDetection: { telephone: false },
+  // La tarjeta del link al compartirlo (WhatsApp, LinkedIn). La imagen es
+  // app/opengraph-image.jpg y Next la suma sola; la URL absoluta la arma con el
+  // dominio de producción de Vercel.
+  openGraph: {
+    type: "website",
+    locale: "es_AR",
+    siteName: "Dinerillo",
+    title: "Dinerillo · Tu plata del mes en un solo lugar",
+    description:
+      "Mirá si el mes fue bueno, cuánto gastaste y si venís cumpliendo tu meta de ahorro. Con los gastos en pareja en el mismo lugar.",
+  },
+  twitter: { card: "summary_large_image" },
   icons: {
     icon: [
       { url: "/icons/icono-192.png?v=2", sizes: "192x192", type: "image/png" },
