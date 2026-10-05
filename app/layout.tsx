@@ -28,22 +28,23 @@ export const metadata: Metadata = {
   // La tarjeta del link al compartirlo (WhatsApp, LinkedIn). El dominio va
   // fijo: sin él, Next arma la URL de la imagen con el dominio que elige Vercel
   // (rentifay.vercel.app, el nombre viejo) y no con el que se comparte. La
-  // imagen va en /public, JPG baseline y sin `?hash` en la URL, como las que
-  // WhatsApp muestra grandes.
+  // imagen va en /public, JPG baseline y sin `?hash` en la URL.
+  // WhatsApp pide og:title, og:description, og:url y og:image; si falta alguna
+  // "relaja los requisitos" y muestra la tarjeta chica. La descripción, de
+  // unos 80 caracteres como máximo.
   metadataBase: new URL("https://dinerillo-app.vercel.app"),
   openGraph: {
     type: "website",
     locale: "es_AR",
     siteName: "Dinerillo",
+    url: "/",
     title: "Dinerillo · Tu plata del mes en un solo lugar",
-    description:
-      "Mirá si el mes fue bueno, cuánto gastaste y si venís cumpliendo tu meta de ahorro. Con los gastos en pareja en el mismo lugar.",
+    description: "Mirá si el mes fue bueno, cuánto gastaste y si cumplís tu meta de ahorro.",
     images: [
       {
         url: "/og-image.jpg",
         width: 1200,
         height: 630,
-        type: "image/jpeg",
         alt: "Dinerillo: tu plata del mes en un solo lugar. Ingresos, gastos, ahorro y gastos en pareja.",
       },
     ],
