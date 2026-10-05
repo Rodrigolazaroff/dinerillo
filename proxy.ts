@@ -47,6 +47,14 @@ export default async function proxy(req: NextRequest) {
   if (pathname.startsWith("/api/")) {
     return NextResponse.json({ error: "Sesión vencida. Volvé a entrar." }, { status: 401 });
   }
+  // La raíz es el link que se comparte: sin sesión muestra el login ahí mismo,
+  // sin redirigir, así WhatsApp lee la página en un solo pedido (con el salto
+  // armaba la tarjeta chica). Al entrar, el login recarga "/" y ya hay sesión.
+  if (pathname === "/") {
+    const login = NextResponse.rewrite(new URL("/login", req.url));
+    for (const cookie of res.cookies.getAll()) login.cookies.set(cookie);
+    return login;
+  }
   const url = req.nextUrl.clone();
   url.pathname = "/login";
   url.search = "";
