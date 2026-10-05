@@ -25,9 +25,12 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
   },
   formatDetection: { telephone: false },
-  // La tarjeta del link al compartirlo (WhatsApp, LinkedIn). La imagen es
-  // app/opengraph-image.jpg y Next la suma sola; la URL absoluta la arma con el
-  // dominio de producción de Vercel.
+  // La tarjeta del link al compartirlo (WhatsApp, LinkedIn). El dominio va
+  // fijo: sin él, Next arma la URL de la imagen con el dominio que elige Vercel
+  // (rentifay.vercel.app, el nombre viejo) y no con el que se comparte. La
+  // imagen va en /public, JPG baseline y sin `?hash` en la URL, como las que
+  // WhatsApp muestra grandes.
+  metadataBase: new URL("https://dinerillo-app.vercel.app"),
   openGraph: {
     type: "website",
     locale: "es_AR",
@@ -35,6 +38,15 @@ export const metadata: Metadata = {
     title: "Dinerillo · Tu plata del mes en un solo lugar",
     description:
       "Mirá si el mes fue bueno, cuánto gastaste y si venís cumpliendo tu meta de ahorro. Con los gastos en pareja en el mismo lugar.",
+    images: [
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        type: "image/jpeg",
+        alt: "Dinerillo: tu plata del mes en un solo lugar. Ingresos, gastos, ahorro y gastos en pareja.",
+      },
+    ],
   },
   twitter: { card: "summary_large_image" },
   icons: {
