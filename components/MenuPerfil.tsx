@@ -100,6 +100,13 @@ export function MenuPerfil({ data }: { data: DataResponse }) {
               <IconoAjustes className="h-5 w-5 text-suave" />
               Ajustes
             </Link>
+            <Link href="/ayuda" role="menuitem" className={item} onClick={() => setAbierto(false)}>
+              <svg viewBox="0 0 20 20" className="h-5 w-5 text-suave" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <circle cx="10" cy="10" r="7" />
+                <path d="M8 8a2 2 0 113 1.7c-.6.4-1 .8-1 1.5M10 13.75v.01" />
+              </svg>
+              Cómo funciona
+            </Link>
             {data.admin && (
               <Link href="/admin" role="menuitem" className={item} onClick={() => setAbierto(false)}>
                 <svg viewBox="0 0 20 20" className="h-5 w-5 text-suave" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

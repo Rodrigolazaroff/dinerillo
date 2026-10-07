@@ -82,7 +82,18 @@ export function usaDivision(d: DataResponse): boolean {
   return d.config?.divide !== "no" || (d.divGastos ?? []).some((g) => !g.deleted_at);
 }
 
-export type Resultado = { ok: true; id?: string } | { ok: false; error: string };
+/** La tarjeta de "¿Primera vez?" en Inicio: solo a cuentas nuevas, hasta que la miren o la cierren. */
+export function mostrarAyudaInicial(d: DataResponse): boolean {
+  return d.config?.onboarding === "1" && !d.config?.ayuda_vista;
+}
+
+/** Ya la vio: no se ofrece más. Se ve al instante y se guarda atrás. */
+export function marcarAyudaVista() {
+  void actualizarLocal((d) => ({ ...d, config: { ...d.config, ayuda_vista: "1" } }));
+  return enviar("/api/config", "POST", { ayuda_vista: "1" });
+}
+
+export type Resultado ={ ok: true; id?: string } | { ok: false; error: string };
 
 /**
  * Pone un cambio en pantalla ya, sin esperar a la red: el número del mes y la

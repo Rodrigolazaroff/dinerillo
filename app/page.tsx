@@ -15,7 +15,7 @@ import { Shell } from "@/components/Shell";
 import { Aviso, BarraParte, Card, Cargando } from "@/components/ui";
 import type { Aviso as AvisoMes } from "@/lib/finanzas";
 import { periodoLargo, plata } from "@/lib/format";
-import { nombreVisible, usaDivision } from "@/lib/useData";
+import { marcarAyudaVista, mostrarAyudaInicial, nombreVisible, usaDivision } from "@/lib/useData";
 import { useFinanzas } from "@/lib/useFinanzas";
 
 // La pantalla de todos los días. Arriba el número que importa (cuánto te
@@ -82,6 +82,29 @@ export default function Inicio() {
           <h1 className="titulo text-2xl font-bold">Hola, {nombre}</h1>
           <SelectorMes className="-mx-2" />
         </div>
+
+        {/* Cuenta nueva: a un toque de entender cómo se usa. Se va al verla o al cerrarla. */}
+        {mostrarAyudaInicial(f.data) && (
+          <div className="aparece flex items-center gap-3 rounded-2xl bg-celeste-claro py-2 pl-4 pr-1.5">
+            <Emoji nombre="pensando" tamano="lg" />
+            <Link href="/ayuda" className="min-w-0 flex-1 py-1.5">
+              <span className="block text-sm font-bold">¿Primera vez por acá?</span>
+              <span className="block text-xs text-suave">
+                Mirá cómo funciona en un minuto <IconoFlecha className="inline h-3.5 w-3.5 align-[-2px]" />
+              </span>
+            </Link>
+            <button
+              type="button"
+              onClick={() => void marcarAyudaVista()}
+              aria-label="Cerrar"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-tenue transition-colors hover:bg-papel hover:text-tinta"
+            >
+              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+                <path d="M5 5l10 10M15 5L5 15" />
+              </svg>
+            </button>
+          </div>
+        )}
 
         {/* El número del mes */}
         <section className="relative overflow-hidden rounded-2xl bg-acento px-5 pb-5 pt-5 text-white">

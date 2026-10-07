@@ -108,7 +108,7 @@ export const gastoSchema = z.object({
  * cuenta: sin lista blanca, el endpoint guardaría lo que le manden.
  */
 export const CLAVES_AJUSTES = [
-  "nombre", "onboarding", "ahorro_pct", "divide", "pareja_nombre", "div_mi_pct", "alquileres",
+  "nombre", "onboarding", "ayuda_vista", "ahorro_pct", "divide", "pareja_nombre", "div_mi_pct", "alquileres",
   "def_aumento_pct", "def_aumento_meses", "def_meses", "def_comision_pct",
   "def_mora_pct_diario", "def_dia_vencimiento", "def_prorrateo_pct",
 ] as const;

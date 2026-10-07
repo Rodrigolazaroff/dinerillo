@@ -64,6 +64,12 @@ marca `onboarding=previo` en silencio. Cada paso se guarda al seguir.
 Ajustes, instalar y cerrar sesión. El nombre que se muestra es `ajustes.nombre` o, si no
 hay, el primer nombre de la cuenta (`nombreVisible` en `lib/useData.ts`).
 
+**Cómo funciona** (`/ayuda`, en el menú del avatar): los cuatro pasos para arrancar, cada
+pantalla plegada (se abre una con `/ayuda#gastos`), preguntas rápidas y un "Escribime".
+Muestra solo lo que la persona usa (División / Alquileres). A las cuentas que pasaron por
+la Bienvenida, Inicio les ofrece "¿Primera vez por acá?" hasta que entran o la cierran
+(`ajustes.ayuda_vista`).
+
 ## Módulos y pantallas
 
 Pestañas abajo (en compu, arriba): **Inicio · Ingresos · Gastos · División**. División
