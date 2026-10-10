@@ -157,14 +157,15 @@ Los errores se guardan en `errores`: los del navegador los manda `ReportarErrore
 (y `app/error.tsx` / `app/global-error.tsx`), y los del server `registrarError`
 (`lib/errores.ts`, después de responder). Los logs crudos siguen en Vercel → Logs.
 
-**Ideas y mejoras** (`/mejoras`, link en el menú del avatar): cada persona manda una idea,
-algo que falla, una crítica u otro comentario (tabla `mejoras`, migración 0007, tope 10 por
-día) y ve en qué quedó lo suyo. En `/admin` se le pone estado (Recibida / La hacemos / Hecha
-/ No por ahora) y una respuesta que la persona ve. Los lunes a las 9 corre la tarea programada
-`dinerillo-mejoras-semanal` (app de escritorio de Claude): lee las que tienen `revisada_at`
-vacío desde el SQL Editor por Chrome (el Supabase de dinerillo está en otra cuenta, el
-conector MCP no llega), escribe el informe en `informes-mejoras/AAAA-MM-DD.md` (ignorado por
-git: tiene texto de usuarios) y las marca revisadas.
+**Sugerencias** ("Sugerir una mejora" en el menú del avatar, `components/MandarMejora.tsx`):
+un texto libre que se manda y listo; la persona no lo vuelve a ver ni le hace seguimiento
+(tabla `mejoras`, migraciones 0007 y 0008, tope 10 por día). El admin las lee en `/admin`,
+sin marcarlas ni clasificarlas. Los martes a la 1 corre la tarea programada
+`dinerillo-mejoras-semanal` (app de escritorio de Claude): lee desde el SQL Editor por Chrome
+las que llegaron desde el informe anterior (el Supabase de dinerillo está en otra cuenta, el
+conector MCP no llega), las clasifica y analiza contra el código, y escribe el informe en
+`informes-mejoras/AAAA-MM-DD.md` (ignorado por git: tiene texto de usuarios). No escribe en
+la base.
 
 **Topes de la IA** (`/api/ia`): 30 usos por persona por día y 400 entre todos
 (`ia_usos`), 500 tokens de salida por pedido, fotos a 1600 px y PDFs de hasta 2 MB.

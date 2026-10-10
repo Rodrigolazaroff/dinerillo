@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { IconoAjustes } from "@/components/iconos";
+import { MandarMejora } from "@/components/MandarMejora";
 import { useInstalable } from "@/components/PWA";
 import type { DataResponse } from "@/lib/useData";
 import { nombreVisible } from "@/lib/useData";
@@ -47,6 +48,7 @@ export function Avatar({ data, tamano = "sm" }: { data: DataResponse; tamano?: "
 
 export function MenuPerfil({ data }: { data: DataResponse }) {
   const [abierto, setAbierto] = useState(false);
+  const [sugiriendo, setSugiriendo] = useState(false);
   const caja = useRef<HTMLDivElement>(null);
   const { sePuedeInstalar, esIOS, instalar } = useInstalable();
   const router = useRouter();
@@ -100,12 +102,20 @@ export function MenuPerfil({ data }: { data: DataResponse }) {
               <IconoAjustes className="h-5 w-5 text-suave" />
               Ajustes
             </Link>
-            <Link href="/mejoras" role="menuitem" className={item} onClick={() => setAbierto(false)}>
+            <button
+              type="button"
+              role="menuitem"
+              className={item}
+              onClick={() => {
+                setAbierto(false);
+                setSugiriendo(true);
+              }}
+            >
               <svg viewBox="0 0 20 20" className="h-5 w-5 text-suave" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M7.5 14.5h5M8.5 17h3M10 3a5 5 0 00-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 00-3-9z" />
               </svg>
-              Ideas y mejoras
-            </Link>
+              Sugerir una mejora
+            </button>
             {data.admin && (
               <Link href="/admin" role="menuitem" className={item} onClick={() => setAbierto(false)}>
                 <svg viewBox="0 0 20 20" className="h-5 w-5 text-suave" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -141,6 +151,7 @@ export function MenuPerfil({ data }: { data: DataResponse }) {
           </div>
         </div>
       )}
+      {sugiriendo && <MandarMejora cerrar={() => setSugiriendo(false)} />}
     </div>
   );
 }
