@@ -8,6 +8,7 @@ import { Emoji } from "@/components/Emoji";
 import { FormMovimiento } from "@/components/FormMovimiento";
 import { IngresosVsGastos } from "@/components/Graficos";
 import { PanelAhorro } from "@/components/PanelAhorro";
+import { Recorrido, olvidarRecorridoPedido, recorridoPedido, type PasoRecorrido } from "@/components/Recorrido";
 import { IconoFlecha, IconoMas } from "@/components/iconos";
 import { Monto, usePrivado } from "@/components/Privado";
 import { SelectorMes } from "@/components/SelectorMes";
@@ -15,7 +16,7 @@ import { Shell } from "@/components/Shell";
 import { Aviso, BarraParte, Card, Cargando } from "@/components/ui";
 import type { Aviso as AvisoMes } from "@/lib/finanzas";
 import { periodoLargo, plata } from "@/lib/format";
-import { marcarAyudaVista, mostrarAyudaInicial, nombreVisible, usaDivision } from "@/lib/useData";
+import { marcarRecorrido, mostrarRecorrido, nombreVisible, usaDivision } from "@/lib/useData";
 import { useFinanzas } from "@/lib/useFinanzas";
 
 // La pantalla de todos los días. Arriba el número que importa (cuánto te
@@ -47,6 +48,9 @@ export default function Inicio() {
   const [oculto] = usePrivado();
   const [cargar, setCargar] = useState<"propio" | "compartido" | null>(null);
   const [ahorrando, setAhorrando] = useState(false);
+  // El recorrido sale solo la primera vez; desde Preguntas frecuentes se pide otra vez.
+  const [pedido, setPedido] = useState(recorridoPedido);
+  const [recorridoVisto, setRecorridoVisto] = useState(false);
 
   if (f.error) {
     return (
@@ -75,6 +79,51 @@ export default function Inicio() {
   const divide = usaDivision(f.data);
   const ingresos = r.ingresos.lineas.filter((l) => l.pesos > 0);
 
+  const enRecorrido = !recorridoVisto && (pedido || mostrarRecorrido(f.data));
+  const pareja = f.prefs.pareja.trim();
+  const pasos: PasoRecorrido[] = [
+    {
+      donde: "mes",
+      emoji: "bolsa-plata",
+      titulo: "Tu mes, de un vistazo",
+      texto: "Te quedó es lo que entró menos lo que salió. Se arma solo a medida que cargás.",
+    },
+    {
+      donde: "ahorro",
+      emoji: "brote",
+      titulo: "Ahorrar es apartar",
+      texto: "Con Ahorrar marcás lo que guardás a propósito. La meta se llena con eso, no con lo que sobra.",
+    },
+    {
+      donde: "cargar",
+      emoji: "tarjeta",
+      titulo: "Cargá en segundos",
+      texto: "Tocá Gasto, dictalo («ayer el súper 85 lucas») o subí la foto de la factura. Siempre lo revisás antes de guardar.",
+    },
+    {
+      donde: "pestanas",
+      emoji: "grafico",
+      titulo: "Cada cosa en su lugar",
+      texto: divide
+        ? `En Ingresos anotás lo que cobrás, en Gastos ves en qué se te va y en División lo que compartís${pareja ? ` con ${pareja}` : ""}.`
+        : "En Ingresos anotás lo que cobrás y en Gastos ves en qué se te va.",
+    },
+    {
+      donde: "cuenta",
+      emoji: "ojo",
+      titulo: "El ojito y tu cuenta",
+      texto: "El ojito tapa los montos, para mostrar la app sin mostrar tu plata. En tu foto están los ajustes y las preguntas frecuentes.",
+    },
+  ];
+
+  function terminarRecorrido(como: "hecho" | "omitido") {
+    setRecorridoVisto(true);
+    setPedido(false);
+    olvidarRecorridoPedido();
+    // Quien lo pidió de nuevo ya lo tenía guardado: no hace falta escribir otra vez.
+    if (!f.data?.config?.recorrido) void marcarRecorrido(como);
+  }
+
   return (
     <Shell>
       <div className="flex flex-col gap-5">
@@ -83,31 +132,8 @@ export default function Inicio() {
           <SelectorMes className="-mx-2" />
         </div>
 
-        {/* Cuenta nueva: a un toque de entender cómo se usa. Se va al verla o al cerrarla. */}
-        {mostrarAyudaInicial(f.data) && (
-          <div className="aparece flex items-center gap-3 rounded-2xl bg-celeste-claro py-2 pl-4 pr-1.5">
-            <Emoji nombre="pensando" tamano="lg" />
-            <Link href="/ayuda" className="min-w-0 flex-1 py-1.5">
-              <span className="block text-sm font-bold">¿Primera vez por acá?</span>
-              <span className="block text-xs text-suave">
-                Mirá cómo funciona en un minuto <IconoFlecha className="inline h-3.5 w-3.5 align-[-2px]" />
-              </span>
-            </Link>
-            <button
-              type="button"
-              onClick={() => void marcarAyudaVista()}
-              aria-label="Cerrar"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-tenue transition-colors hover:bg-papel hover:text-tinta"
-            >
-              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
-                <path d="M5 5l10 10M15 5L5 15" />
-              </svg>
-            </button>
-          </div>
-        )}
-
         {/* El número del mes */}
-        <section className="relative overflow-hidden rounded-2xl bg-acento px-5 pb-5 pt-5 text-white">
+        <section data-recorrido="mes" className="relative overflow-hidden rounded-2xl bg-acento px-5 pb-5 pt-5 text-white">
           {/* El emoji acompaña cómo viene el mes; queda de fondo, no compite con el número. */}
           <Emoji
             nombre={r.quedo >= 0 ? "bolsa-plata" : "plata-vuela"}
@@ -147,7 +173,7 @@ export default function Inicio() {
           {/* Lo que te quedó, partido: lo que apartaste y lo que tenés a mano. */}
           {(r.ingresos.total > 0 || r.ahorrado > 0) && (
             <div className="mt-5 border-t border-white/15 pt-4">
-              <div className="flex items-end justify-between gap-3">
+              <div data-recorrido="ahorro" className="flex items-end justify-between gap-3 rounded-xl">
                 <div className="grid flex-1 grid-cols-2 gap-3">
                   <button type="button" onClick={() => setAhorrando(true)} className="text-left">
                     <p className="text-xs font-medium text-white/80">Ahorrado</p>
@@ -193,6 +219,7 @@ export default function Inicio() {
         </section>
 
         {/* Cargar algo: a un toque */}
+        <div data-recorrido="cargar" className="rounded-2xl">
         <Asistente
           modo="libre"
           variante="atajos"
@@ -209,6 +236,7 @@ export default function Inicio() {
             </>
           }
         />
+        </div>
 
         {/* Lo que pide hacer algo */}
         {f.avisos.length > 0 && (
@@ -317,6 +345,8 @@ export default function Inicio() {
           recargar={f.recargar}
         />
       )}
+
+      {enRecorrido && <Recorrido pasos={pasos} terminar={terminarRecorrido} />}
 
       {cargar && (
         <FormMovimiento

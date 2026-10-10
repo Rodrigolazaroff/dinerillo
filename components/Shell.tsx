@@ -104,6 +104,7 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col px-4 sm:px-6">
       <header
+        data-barra="arriba"
         className="no-print sticky top-0 z-30 -mx-4 flex items-center justify-between gap-3 border-b border-borde bg-fondo/90 px-4 py-2 backdrop-blur-sm sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-5 sm:backdrop-blur-none"
         style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }}
       >
@@ -112,7 +113,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <span className="titulo text-xl font-extrabold text-acento">dinerillo</span>
         </Link>
 
-        <div className="flex shrink-0 items-center gap-1">
+        <div data-recorrido="cuenta" className="flex shrink-0 items-center gap-1 rounded-full">
           <BotonOjo />
           {data ? (
             <MenuPerfil data={data} />
@@ -125,7 +126,11 @@ export function Shell({ children }: { children: ReactNode }) {
       </header>
 
       {/* Navegación de escritorio */}
-      <nav className="no-print mb-6 hidden w-fit gap-1 rounded-full bg-celeste-claro p-1 sm:flex" aria-label="Navegación principal">
+      <nav
+        data-recorrido="pestanas"
+        className="no-print mb-6 hidden w-fit gap-1 rounded-full bg-celeste-claro p-1 sm:flex"
+        aria-label="Navegación principal"
+      >
         {links.map(({ href, label, Icono }) => (
           <Link
             key={href}
@@ -189,6 +194,8 @@ export function Shell({ children }: { children: ReactNode }) {
 
       {/* Barra de pestañas: sólo celular */}
       <nav
+        data-barra="abajo"
+        data-recorrido="pestanas"
         className="no-print fixed inset-x-0 bottom-0 z-40 border-t border-borde bg-papel/95 backdrop-blur-sm sm:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         aria-label="Navegación principal"

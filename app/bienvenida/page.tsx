@@ -313,7 +313,7 @@ function Pasos({ data }: { data: DataResponse }) {
           <div className="flex flex-1 flex-col items-center justify-center text-center">
             <Emoji nombre="fiesta" tamano="xxl" className="pop h-24 w-24" />
             <h1 className="titulo mt-5 text-3xl font-extrabold">¡Listo, {nombre.trim() || "che"}!</h1>
-            <p className="mt-2 text-sm text-suave">Ya podés cargar tu primer gasto.</p>
+            <p className="mt-2 text-sm text-suave">Te muestro en un minuto dónde está cada cosa.</p>
           </div>
         )}
       </div>
@@ -367,11 +367,12 @@ function Pasos({ data }: { data: DataResponse }) {
         )}
         {paso === "listo" && (
           <>
-            <Boton className="min-h-12 w-full text-base" onClick={() => router.replace("/gastos?nuevo=1")}>
-              Cargar un gasto
+            {/* En Inicio arranca el recorrido: la primera vez se muestra dónde está cada cosa. */}
+            <Boton className="min-h-12 w-full text-base" onClick={() => router.replace("/")}>
+              Empezar
             </Boton>
-            <Boton variante="fantasma" className="min-h-11 w-full" onClick={() => router.replace("/")}>
-              Ir al inicio
+            <Boton variante="fantasma" className="min-h-11 w-full" onClick={() => router.replace("/gastos?nuevo=1")}>
+              Cargar un gasto ya
             </Boton>
           </>
         )}

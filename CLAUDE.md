@@ -61,14 +61,23 @@ base y guarda `onboarding` en `ajustes`. El
 marca `onboarding=previo` en silencio. Cada paso se guarda al seguir.
 
 **Tu cuenta** vive en el avatar de arriba (`components/MenuPerfil.tsx`): nombre, mail,
-Ajustes, instalar y cerrar sesión. El nombre que se muestra es `ajustes.nombre` o, si no
-hay, el primer nombre de la cuenta (`nombreVisible` en `lib/useData.ts`).
+Ajustes, Preguntas frecuentes, Ideas y mejoras, instalar y cerrar sesión. El nombre que se
+muestra es `ajustes.nombre` o, si no hay, el primer nombre de la cuenta (`nombreVisible`
+en `lib/useData.ts`).
 
-**Cómo funciona** (`/ayuda`, en el menú del avatar): los cuatro pasos para arrancar, cada
-pantalla plegada (se abre una con `/ayuda#gastos`), preguntas rápidas y un "Escribime".
-Muestra solo lo que la persona usa (División / Alquileres). A las cuentas que pasaron por
-la Bienvenida, Inicio les ofrece "¿Primera vez por acá?" hasta que entran o la cierran
-(`ajustes.ayuda_vista`).
+**Recorrido** (`components/Recorrido.tsx`): la primera vez en Inicio después de la
+Bienvenida, la app se oscurece y se ilumina una parte por vez (el mes, el ahorro, cargar,
+las pestañas, el ojito y tu cuenta) con una tarjeta y **Omitir / Siguiente**. Cada paso
+apunta a un elemento con `data-recorrido="…"`; si no está en pantalla (el ahorro sin
+ingresos, la barra de abajo en la compu) se saltea. Al terminar u omitir se guarda
+`ajustes.recorrido` (`hecho` / `omitido`) y no sale más solo. `data-barra` marca el
+encabezado y la barra de abajo, para encuadrar sin que queden tapados.
+
+**Preguntas frecuentes** (`/ayuda`, en el menú del avatar): preguntas cortas por tema (tu
+mes, cargar, compartidos, alquileres, tu cuenta), plegadas; `/ayuda#dolares` abre una.
+De lo que la persona no usa (División, Alquileres) solo cuenta cómo prenderlo. Arriba,
+"Ver el recorrido otra vez" (`pedirRecorrido`, en memoria: al navegar por adentro, Inicio
+se dibuja antes de que cambie la URL); abajo, el link a Ideas y mejoras.
 
 ## Módulos y pantallas
 
@@ -251,8 +260,8 @@ prefijo `alq_`:
 - `alq_fijados` — `id, contrato_id, periodo, monto, nota` (importes fijados a mano)
 - `alq_cobros` — `id, contrato_id, periodo, fecha_cobro, importe, nota`
 - `alq_boletas` — `id, tipo, periodo, fecha, propiedad_id, monto, nota` (solo las que se reparten)
-- `ajustes` — `clave, valor` por usuario (`nombre`, `onboarding`, `ahorro_pct`, `divide`,
-  `pareja_nombre`, `div_mi_pct`, `alquileres` y los `def_*` del contrato nuevo)
+- `ajustes` — `clave, valor` por usuario (`nombre`, `onboarding`, `recorrido`, `ahorro_pct`,
+  `divide`, `pareja_nombre`, `div_mi_pct`, `alquileres` y los `def_*` del contrato nuevo)
 
 Del resto de los módulos: `ingresos`, `ingreso_cobros` (con `tipo_cambio`),
 `categorias` (compartidas entre Gastos y División, color = slot de la paleta),

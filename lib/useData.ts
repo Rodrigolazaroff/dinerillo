@@ -82,15 +82,15 @@ export function usaDivision(d: DataResponse): boolean {
   return d.config?.divide !== "no" || (d.divGastos ?? []).some((g) => !g.deleted_at);
 }
 
-/** La tarjeta de "¿Primera vez?" en Inicio: solo a cuentas nuevas, hasta que la miren o la cierren. */
-export function mostrarAyudaInicial(d: DataResponse): boolean {
-  return d.config?.onboarding === "1" && !d.config?.ayuda_vista;
+/** El recorrido guiado de Inicio sale solo a las cuentas nuevas, hasta que lo terminan u omiten. */
+export function mostrarRecorrido(d: DataResponse): boolean {
+  return d.config?.onboarding === "1" && !d.config?.recorrido;
 }
 
-/** Ya la vio: no se ofrece más. Se ve al instante y se guarda atrás. */
-export function marcarAyudaVista() {
-  void actualizarLocal((d) => ({ ...d, config: { ...d.config, ayuda_vista: "1" } }));
-  return enviar("/api/config", "POST", { ayuda_vista: "1" });
+/** Ya lo vio (o lo salteó): no sale más solo. Se ve al instante y se guarda atrás. */
+export function marcarRecorrido(como: "hecho" | "omitido") {
+  void actualizarLocal((d) => ({ ...d, config: { ...d.config, recorrido: como } }));
+  return enviar("/api/config", "POST", { recorrido: como });
 }
 
 export type Resultado ={ ok: true; id?: string } | { ok: false; error: string };
