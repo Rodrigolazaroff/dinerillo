@@ -79,6 +79,7 @@ export default function Inicio() {
   const divide = usaDivision(f.data);
   const ingresos = r.ingresos.lineas.filter((l) => l.pesos > 0);
 
+  const hayAhorro = r.ingresos.total > 0 || r.ahorrado > 0;
   const enRecorrido = !recorridoVisto && (pedido || mostrarRecorrido(f.data));
   const pareja = f.prefs.pareja.trim();
   const pasos: PasoRecorrido[] = [
@@ -86,7 +87,10 @@ export default function Inicio() {
       donde: "mes",
       emoji: "bolsa-plata",
       titulo: "Tu mes, de un vistazo",
-      texto: "Te quedó es lo que entró menos lo que salió. Se arma solo a medida que cargás.",
+      // Sin plata que entró no se ve el botón Ahorrar (y se saltea su paso): se cuenta acá.
+      texto: hayAhorro
+        ? "Te quedó es lo que entró menos lo que salió. Se arma solo a medida que cargás."
+        : "Te quedó es lo que entró menos lo que salió. Cuando cargues lo que cobrás, acá mismo apartás tu ahorro.",
     },
     {
       donde: "ahorro",
@@ -112,7 +116,7 @@ export default function Inicio() {
       donde: "cuenta",
       emoji: "ojo",
       titulo: "El ojito y tu cuenta",
-      texto: "El ojito tapa los montos, para mostrar la app sin mostrar tu plata. En tu foto están los ajustes y las preguntas frecuentes.",
+      texto: "El ojito tapa los montos, para mostrar la app sin mostrar tu plata. Al lado, en tu cuenta, están los ajustes y las preguntas frecuentes.",
     },
   ];
 
@@ -171,7 +175,7 @@ export default function Inicio() {
           </div>
 
           {/* Lo que te quedó, partido: lo que apartaste y lo que tenés a mano. */}
-          {(r.ingresos.total > 0 || r.ahorrado > 0) && (
+          {hayAhorro && (
             <div className="mt-5 border-t border-white/15 pt-4">
               <div data-recorrido="ahorro" className="flex items-end justify-between gap-3 rounded-xl">
                 <div className="grid flex-1 grid-cols-2 gap-3">

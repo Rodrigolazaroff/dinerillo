@@ -119,9 +119,10 @@ function temas({ divide, alquila }: { divide: boolean; alquila: boolean }): Tema
           p: "¿Qué son los gastos fijos?",
           r: (
             <>
-              Lo que pagás todos los meses. Marcá <strong>Todos los meses</strong> al cargar el gasto, o armalos en
-              Gastos → <strong>Fijos del mes</strong>. Si el monto es siempre igual (Netflix) se carga solo; si varía
-              (la luz), te pide confirmarlo unos días antes. Si algo se repite, la app te lo sugiere.
+              Lo que pagás todos los meses. Si es siempre igual (Netflix), marcá <strong>Todos los meses</strong> al
+              cargarlo y se carga solo. Si varía (la luz), armalo en Gastos → <strong>Fijos del mes</strong> y apagá{" "}
+              <strong>Siempre el mismo monto</strong>: te pide confirmarlo unos días antes. Si algo se repite, la app
+              te lo sugiere.
             </>
           ),
         },
@@ -135,7 +136,8 @@ function temas({ divide, alquila }: { divide: boolean; alquila: boolean }): Tema
           p: "Borré algo sin querer",
           r: (
             <>
-              Apenas lo borrás aparece un aviso abajo: tocá <strong>Deshacer</strong> y vuelve como estaba.
+              Apenas lo borrás aparece un aviso abajo por unos segundos: tocá <strong>Deshacer</strong> y vuelve como
+              estaba.
             </>
           ),
         },
@@ -194,7 +196,8 @@ function temas({ divide, alquila }: { divide: boolean; alquila: boolean }): Tema
               p: "¿Puedo dividir gastos con alguien?",
               r: (
                 <>
-                  Sí: en Ajustes prendé <strong>Divido gastos con alguien</strong> y aparece la pestaña División.
+                  Sí: en Ajustes prendé <strong>Divido gastos con alguien</strong>, tocá Guardar y aparece la pestaña
+                  División.
                 </>
               ),
             },
@@ -218,11 +221,12 @@ function temas({ divide, alquila }: { divide: boolean; alquila: boolean }): Tema
             },
             {
               id: "a-mano",
-              p: "Un mes se cobró distinto a lo pactado",
+              p: "Un mes el alquiler es distinto a lo pactado",
               r: (
                 <>
-                  En Contratos tocá <strong>Cambiar</strong> en ese mes y poné el importe: le gana a la cuenta.{" "}
-                  <strong>Restaurar</strong> vuelve al calculado.
+                  En Contratos tocá <strong>Ver los meses</strong> y <strong>Cambiar</strong> en ese mes: el importe que
+                  pongas le gana a la cuenta, y <strong>Restaurar</strong> vuelve al calculado. Si te pagaron de menos,
+                  no lo cambies: cargá lo que entró en Cobros y queda parcial.
                 </>
               ),
             },
@@ -231,8 +235,8 @@ function temas({ divide, alquila }: { divide: boolean; alquila: boolean }): Tema
               p: "¿Cómo reparto el agua o el inmobiliario?",
               r: (
                 <>
-                  En <strong>Boletas</strong> cargás el total una sola vez y cada contrato se lleva su parte. Si los
-                  porcentajes no suman 100, la app te avisa.
+                  En <strong>Boletas</strong> cargás el total una sola vez y cada contrato se lleva su parte. Si entre
+                  todos no llegan al 100%, lo que falta aparece como «Vos»; si se pasan, te avisa.
                 </>
               ),
             },
@@ -265,14 +269,16 @@ function temas({ divide, alquila }: { divide: boolean; alquila: boolean }): Tema
           p: "¿La puedo tener como app en el celu?",
           r: (
             <>
-              Sí: tocá tu foto → <strong>Instalar la app</strong>. Si no aparece, en Ajustes están los pasos.
+              Sí: arriba a la derecha, en tu cuenta (el círculo con tu inicial o tu foto) → <strong>Instalar la
+              app</strong>. Si no aparece, buscá «Instalar app» o «Agregar a pantalla de inicio» en el menú del
+              navegador.
             </>
           ),
         },
         {
           id: "ajustes",
           p: "¿Dónde cambio mi nombre, la meta o las categorías?",
-          r: <>En Ajustes: tocá tu foto, arriba a la derecha.</>,
+          r: <>En Ajustes, que está en tu cuenta: el círculo con tu inicial (o tu foto), arriba a la derecha.</>,
         },
         {
           id: "privacidad",

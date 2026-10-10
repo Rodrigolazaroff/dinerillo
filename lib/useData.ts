@@ -82,15 +82,29 @@ export function usaDivision(d: DataResponse): boolean {
   return d.config?.divide !== "no" || (d.divGastos ?? []).some((g) => !g.deleted_at);
 }
 
-/** El recorrido guiado de Inicio sale solo a las cuentas nuevas, hasta que lo terminan u omiten. */
+/**
+ * El recorrido guiado de Inicio sale solo a las cuentas nuevas (contestaron la
+ * Bienvenida o la saltearon), hasta que lo terminan u omiten.
+ */
 export function mostrarRecorrido(d: DataResponse): boolean {
-  return d.config?.onboarding === "1" && !d.config?.recorrido;
+  const o = d.config?.onboarding;
+  return (o === "1" || o === "salteado") && !d.config?.recorrido;
 }
 
-/** Ya lo vio (o lo salteó): no sale más solo. Se ve al instante y se guarda atrás. */
-export function marcarRecorrido(como: "hecho" | "omitido") {
-  void actualizarLocal((d) => ({ ...d, config: { ...d.config, recorrido: como } }));
-  return enviar("/api/config", "POST", { recorrido: como });
+/**
+ * Ya lo vio (o lo salteó): no sale más solo. Se anota en la caché sin volver a
+ * leer y se relee recién después de guardar: si no, la lectura podía llegar
+ * antes que el guardado y el recorrido volvía a salir.
+ */
+export async function marcarRecorrido(como: "hecho" | "omitido") {
+  void mutate<DataResponse>(
+    "/api/data",
+    (d) => (d ? { ...d, config: { ...d.config, recorrido: como } } : d),
+    { revalidate: false }
+  );
+  const r = await enviar("/api/config", "POST", { recorrido: como });
+  void mutate("/api/data");
+  return r;
 }
 
 export type Resultado ={ ok: true; id?: string } | { ok: false; error: string };

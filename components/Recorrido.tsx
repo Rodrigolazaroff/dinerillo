@@ -52,14 +52,26 @@ function buscar(donde: string): HTMLElement | null {
   return null;
 }
 
+/**
+ * Dónde está una barra que no se mueve al scrollear. En la compu el encabezado
+ * scrollea con la página y la barra de abajo no está: ahí no tapan nada.
+ */
+function barraFija(el: Element | null): DOMRect | null {
+  if (!(el instanceof HTMLElement)) return null;
+  const pos = getComputedStyle(el).position;
+  if (pos !== "fixed" && pos !== "sticky") return null;
+  const r = el.getBoundingClientRect();
+  return r.height > 0 ? r : null;
+}
+
 /** La franja de la pantalla que no tapan el encabezado ni la barra de abajo. */
 function franjaLibre() {
   const vh = window.innerHeight;
-  const arriba = document.querySelector('[data-barra="arriba"]')?.getBoundingClientRect();
-  const abajo = document.querySelector('[data-barra="abajo"]')?.getBoundingClientRect();
+  const arriba = barraFija(document.querySelector('[data-barra="arriba"]'));
+  const abajo = barraFija(document.querySelector('[data-barra="abajo"]'));
   return {
     desde: Math.max(0, arriba?.bottom ?? 0) + BORDE,
-    hasta: (abajo && abajo.height > 0 ? Math.min(vh, abajo.top) : vh) - BORDE,
+    hasta: (abajo ? Math.min(vh, abajo.top) : vh) - BORDE,
   };
 }
 
@@ -68,7 +80,7 @@ function franjaLibre() {
  * ven, no se mueve nada; lo que está en una barra fija siempre se ve.
  */
 function encuadrar(el: HTMLElement, altoTarjeta: number) {
-  if (el.closest("[data-barra]")) return;
+  if (barraFija(el.closest("[data-barra]"))) return;
   const r = el.getBoundingClientRect();
   const { desde, hasta } = franjaLibre();
   const entra = r.top - AIRE >= desde && r.bottom + AIRE <= hasta;
@@ -127,12 +139,11 @@ export function Recorrido({
   const [lista, setLista] = useState<PasoRecorrido[] | null>(null);
   const [i, setI] = useState(0);
   const [m, setM] = useState<Medidas | null>(null);
-  const [altoTarjeta, setAltoTarjeta] = useState(0);
+  /** Lo que mide la tarjeta de verdad: el ancho va en rem y cambia con la letra del navegador. */
+  const [caja, setCaja] = useState({ ancho: 0, alto: 0 });
   // Sin transición la primera vez: el hueco aparece en su lugar, no vuela desde la esquina.
   const [mover, setMover] = useState(false);
   const tarjeta = useRef<HTMLDivElement>(null);
-  /** El último alto medido de la tarjeta: para encuadrar el paso sin esperar un render. */
-  const ultimoAlto = useRef(0);
   const idTitulo = useId();
   const idTexto = useId();
   const alTerminar = useRef(terminar);
@@ -154,11 +165,12 @@ export function Recorrido({
 
   const paso = lista?.[i];
 
-  // Al cambiar de paso, correr la página si hace falta. Medir lo hace el seguimiento de abajo.
+  // Al cambiar de paso, correr la página si hace falta. La tarjeta ya tiene el
+  // texto nuevo: se encuadra con su alto real. Medir lo hace el seguimiento de abajo.
   useLayoutEffect(() => {
     if (!paso) return;
     const el = buscar(paso.donde);
-    if (el) encuadrar(el, ultimoAlto.current || 190);
+    if (el) encuadrar(el, tarjeta.current?.offsetHeight || 190);
   }, [paso]);
 
   // Mientras está abierto, sigue al elemento: una fila que se carga arriba, girar
@@ -166,6 +178,7 @@ export function Recorrido({
   useEffect(() => {
     if (!paso || !lista) return;
     let cuadro = 0;
+    let pantalla = "";
     const seguir = () => {
       const el = buscar(paso.donde);
       if (!el) {
@@ -174,11 +187,18 @@ export function Recorrido({
         else alTerminar.current("hecho");
         return;
       }
-      const nuevas = medir(el);
+      const t = tarjeta.current;
+      const nueva = { ancho: t?.offsetWidth ?? 0, alto: t?.offsetHeight ?? 0 };
+      setCaja((c) => (Math.abs(c.ancho - nueva.ancho) < 0.5 && Math.abs(c.alto - nueva.alto) < 0.5 ? c : nueva));
+      let nuevas = medir(el);
+      // Giró el celu o cambió la ventana: se vuelve a encuadrar, no solo a medir.
+      const ahora = `${nuevas.vw}x${nuevas.vh}`;
+      if (pantalla && ahora !== pantalla) {
+        encuadrar(el, nueva.alto || 190);
+        nuevas = medir(el);
+      }
+      pantalla = ahora;
       setM((viejas) => (iguales(viejas, nuevas) ? viejas : nuevas));
-      const alto = tarjeta.current?.offsetHeight ?? 0;
-      ultimoAlto.current = alto;
-      setAltoTarjeta((a) => (Math.abs(a - alto) < 0.5 ? a : alto));
       cuadro = requestAnimationFrame(seguir);
     };
     cuadro = requestAnimationFrame(seguir);
@@ -233,15 +253,14 @@ export function Recorrido({
   // la pantalla, aunque tape un poco (pasa con un elemento muy alto en un celu chico).
   // Hasta medirla, invisible pero enfocable (con visibility: hidden el foco no entra).
   let estiloTarjeta: CSSProperties = { opacity: 0, pointerEvents: "none", top: 0, left: BORDE };
-  if (m && altoTarjeta) {
-    // El mismo ancho que pone la clase: 22rem, o la pantalla menos 1rem de cada lado.
-    const ancho = Math.min(352, m.vw - 2 * 16);
+  if (m && caja.alto) {
+    const { ancho, alto } = caja;
     const left = Math.min(Math.max(m.left + m.width / 2 - ancho / 2, 16), m.vw - 16 - ancho);
     const abajo = m.top + m.height + SEP;
-    const arriba = m.top - SEP - altoTarjeta;
-    const top =
-      abajo + altoTarjeta <= m.vh - BORDE ? abajo : arriba >= BORDE ? arriba : m.vh - BORDE - altoTarjeta;
-    estiloTarjeta = { top, left };
+    const arriba = m.top - SEP - alto;
+    const top = abajo + alto <= m.vh - BORDE ? abajo : arriba >= BORDE ? arriba : m.vh - BORDE - alto;
+    // Pase lo que pase con el elemento, Omitir y Siguiente quedan en pantalla.
+    estiloTarjeta = { top: Math.min(Math.max(top, BORDE), m.vh - BORDE - alto), left };
   }
 
   const transicion = mover
@@ -280,12 +299,10 @@ export function Recorrido({
         }`}
         style={estiloTarjeta}
       >
-        <div className="flex items-start gap-3" aria-live="polite">
+        <div className="flex items-start gap-3" aria-live="polite" aria-atomic="true">
           <Emoji key={paso.donde} nombre={paso.emoji} tamano="lg" className="pop shrink-0" />
           <div className="min-w-0">
-            <p className="sr-only">
-              Paso {i + 1} de {total}.
-            </p>
+            <p className="sr-only">{`Paso ${i + 1} de ${total}.`}</p>
             <h2 id={idTitulo} className="titulo text-lg font-bold leading-tight">
               {paso.titulo}
             </h2>

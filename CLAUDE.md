@@ -66,7 +66,7 @@ muestra es `ajustes.nombre` o, si no hay, el primer nombre de la cuenta (`nombre
 en `lib/useData.ts`).
 
 **Recorrido** (`components/Recorrido.tsx`): la primera vez en Inicio después de la
-Bienvenida, la app se oscurece y se ilumina una parte por vez (el mes, el ahorro, cargar,
+Bienvenida (contestada o salteada), la app se oscurece y se ilumina una parte por vez (el mes, el ahorro, cargar,
 las pestañas, el ojito y tu cuenta) con una tarjeta y **Omitir / Siguiente**. Cada paso
 apunta a un elemento con `data-recorrido="…"`; si no está en pantalla (el ahorro sin
 ingresos, la barra de abajo en la compu) se saltea. Al terminar u omitir se guarda
