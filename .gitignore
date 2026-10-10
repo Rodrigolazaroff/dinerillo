@@ -28,3 +28,6 @@ npm-debug.log*
 # salida del test del motor de calculo
 /.test-build
 /.migrar-build
+
+# Informes semanales de mejoras: tienen texto de usuarios, no se suben
+informes-mejoras/
