@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Emoji } from "@/components/Emoji";
+import { MandarMejora } from "@/components/MandarMejora";
 import { pedirRecorrido } from "@/components/Recorrido";
 import { Shell } from "@/components/Shell";
 import { IconoFlecha } from "@/components/iconos";
-import { clasesBoton } from "@/components/ui";
+import { Boton, clasesBoton } from "@/components/ui";
 import { useData, usaAlquileres, usaDivision } from "@/lib/useData";
 
 // Preguntas frecuentes, en el menú del avatar. Cortas, como las contestaría
@@ -311,6 +312,7 @@ export default function Ayuda() {
   const { data } = useData();
   const divide = data ? usaDivision(data) : true;
   const alquila = data ? usaAlquileres(data) : false;
+  const [sugiriendo, setSugiriendo] = useState(false);
 
   // /ayuda#dolares abre esa pregunta y la trae a la vista.
   useEffect(() => {
@@ -363,13 +365,14 @@ export default function Ayuda() {
           <Emoji nombre="guino" tamano="xl" />
           <p className="titulo text-base font-semibold">¿No está tu pregunta?</p>
           <p className="max-w-xs text-xs leading-relaxed text-suave">
-            Mandala en Ideas y mejoras: la leemos y te contestamos ahí mismo.
+            Contanos qué no se entiende o qué le falta a la app: lo leemos todo.
           </p>
-          <Link href="/mejoras" className={`${clasesBoton("primario")} mt-1`}>
-            Preguntar
-          </Link>
+          <Boton className="mt-1" onClick={() => setSugiriendo(true)}>
+            Sugerir una mejora
+          </Boton>
         </section>
       </div>
+      {sugiriendo && <MandarMejora cerrar={() => setSugiriendo(false)} />}
     </Shell>
   );
 }
