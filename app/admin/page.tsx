@@ -1,8 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import useSWR from "swr";
 import { Shell } from "@/components/Shell";
-import { Aviso, Card, Cargando, Kpi } from "@/components/ui";
+import { avisar } from "@/components/Toast";
+import { Aviso, Boton, Card, Cargando, Kpi, Select, Textarea } from "@/components/ui";
+import { ESTADOS_MEJORA, etiquetaTipo, type EstadoMejora, type TipoMejora } from "@/lib/mejoras";
+import { enviar } from "@/lib/useData";
 
 // Para el dueño de la app: cuánta gente la usa, cuánto se gasta en IA y qué
 // se rompió. Métricas y errores; nunca los montos de nadie.
@@ -35,6 +39,18 @@ interface Panel {
     ruta: string;
     navegador: string;
   }[];
+  mejoras: MejoraAdmin[];
+}
+
+interface MejoraAdmin {
+  id: number;
+  creado: string;
+  email: string | null;
+  tipo: TipoMejora;
+  texto: string;
+  estado: EstadoMejora;
+  respuesta: string;
+  revisada: string | null;
 }
 
 async function leer(url: string): Promise<Panel> {
@@ -52,8 +68,60 @@ const cuando = (iso: string | null) =>
 /** Haiku 4.5: US$ 1 por millón de tokens de entrada y 5 de salida; se estima con 1,5. */
 const dolares = (tokens: number) => `US$ ${((tokens / 1_000_000) * 1.5).toFixed(2).replace(".", ",")}`;
 
+/** Una idea: se lee, se le pone estado y, si hace falta, una respuesta que la persona ve. */
+function FilaMejora({ m, recargar }: { m: MejoraAdmin; recargar: () => void }) {
+  const [estado, setEstado] = useState<EstadoMejora>(m.estado);
+  const [respuesta, setRespuesta] = useState(m.respuesta);
+  const [ocupado, setOcupado] = useState(false);
+  const cambio = estado !== m.estado || respuesta !== m.respuesta;
+
+  async function guardar() {
+    setOcupado(true);
+    const r = await enviar("/api/mejoras", "PATCH", { id: m.id, estado, respuesta });
+    setOcupado(false);
+    if (!r.ok) return avisar(r.error);
+    avisar("Guardado");
+    recargar();
+  }
+
+  return (
+    <details className="px-4 py-3 sm:px-5">
+      <summary className="cursor-pointer list-none">
+        <div className="flex items-start justify-between gap-2">
+          <p className="line-clamp-2 text-sm">{m.texto}</p>
+          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${ESTADOS_MEJORA[m.estado].clase}`}>
+            {ESTADOS_MEJORA[m.estado].texto}
+          </span>
+        </div>
+        <p className="text-[11px] text-tenue">
+          {cuando(m.creado)} · {etiquetaTipo(m.tipo)} · {m.email ?? "—"}
+          {!m.revisada && " · sin revisar"}
+        </p>
+      </summary>
+      <div className="mt-3 flex flex-col gap-2">
+        <p className="whitespace-pre-wrap break-words rounded-lg bg-fondo p-2 text-sm">{m.texto}</p>
+        <Select value={estado} onChange={(e) => setEstado(e.target.value as EstadoMejora)} aria-label="Estado">
+          {(Object.keys(ESTADOS_MEJORA) as EstadoMejora[]).map((k) => (
+            <option key={k} value={k}>{ESTADOS_MEJORA[k].texto}</option>
+          ))}
+        </Select>
+        <Textarea
+          value={respuesta}
+          onChange={(e) => setRespuesta(e.target.value)}
+          placeholder="Respuesta (la ve la persona)"
+          maxLength={1000}
+          aria-label="Respuesta"
+        />
+        <Boton tamano="sm" className="self-end" onClick={guardar} disabled={!cambio || ocupado}>
+          {ocupado ? "Guardando…" : "Guardar"}
+        </Boton>
+      </div>
+    </details>
+  );
+}
+
 export default function Admin() {
-  const { data, error } = useSWR<Panel>("/api/admin", leer, { refreshInterval: 60_000 });
+  const { data, error, mutate } = useSWR<Panel>("/api/admin", leer, { refreshInterval: 60_000 });
 
   return (
     <Shell>
@@ -79,6 +147,23 @@ export default function Admin() {
                 tono={data.resumen.errores_24h > 0 ? "peligro" : "ok"}
               />
             </div>
+
+            <Card
+              titulo="Ideas y mejoras"
+              nota={`${data.mejoras.filter((m) => !m.revisada).length} sin revisar`}
+            >
+              {data.mejoras.length === 0 ? (
+                <p className="px-4 py-6 text-center text-sm text-suave sm:px-5">Nadie mandó nada todavía.</p>
+              ) : (
+                <ul className="divide-y divide-linea">
+                  {data.mejoras.map((m) => (
+                    <li key={m.id}>
+                      <FilaMejora m={m} recargar={() => void mutate()} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
 
             <Card titulo="Errores">
               {data.errores.length === 0 ? (

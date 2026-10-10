@@ -105,7 +105,13 @@ export function MenuPerfil({ data }: { data: DataResponse }) {
                 <circle cx="10" cy="10" r="7" />
                 <path d="M8 8a2 2 0 113 1.7c-.6.4-1 .8-1 1.5M10 13.75v.01" />
               </svg>
-              Cómo funciona
+              Preguntas frecuentes
+            </Link>
+            <Link href="/mejoras" role="menuitem" className={item} onClick={() => setAbierto(false)}>
+              <svg viewBox="0 0 20 20" className="h-5 w-5 text-suave" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M7.5 14.5h5M8.5 17h3M10 3a5 5 0 00-3 9c.6.5 1 1.2 1 2h4c0-.8.4-1.5 1-2a5 5 0 00-3-9z" />
+              </svg>
+              Ideas y mejoras
             </Link>
             {data.admin && (
               <Link href="/admin" role="menuitem" className={item} onClick={() => setAbierto(false)}>

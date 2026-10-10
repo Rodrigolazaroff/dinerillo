@@ -20,6 +20,7 @@ export default function Privacidad() {
             Datos técnicos mínimos: los errores de la app (qué pasó, en qué pantalla y desde qué
             navegador) y cuántas veces usás la carga asistida.
           </li>
+          <li>Las ideas, críticas y comentarios que mandás desde &quot;Ideas y mejoras&quot;.</li>
         </ul>
       </section>
 
@@ -36,7 +37,8 @@ export default function Privacidad() {
         <p>
           Lo que cargás lo ves <strong>solo vos</strong>: la base de datos no le deja a ninguna otra
           cuenta leerlo. El administrador puede ver tu mail, cuándo te diste de alta y entraste,
-          cuántas veces usaste la carga asistida y los errores que tuvo la app; <strong>nunca tus
+          cuántas veces usaste la carga asistida, los errores que tuvo la app y las ideas que
+          mandaste (para analizarlas puede usar Claude, de Anthropic); <strong>nunca tus
           montos ni tus movimientos</strong>.
         </p>
       </section>

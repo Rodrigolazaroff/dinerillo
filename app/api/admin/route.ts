@@ -12,10 +12,12 @@ export async function GET() {
   const no = await exigirEditor();
   if (no) return no;
   const supabase = await supabaseServer();
-  const [resumen, usuarios, errores] = await Promise.all([
+  const [resumen, usuarios, errores, mejoras] = await Promise.all([
     supabase.rpc("admin_resumen"),
     supabase.rpc("admin_usuarios"),
     supabase.rpc("admin_errores"),
+    // Migración 0007: si todavía no se aplicó, el panel sigue andando sin ideas.
+    supabase.rpc("admin_mejoras"),
   ]);
   const error = resumen.error ?? usuarios.error ?? errores.error;
   if (error) {
@@ -26,7 +28,7 @@ export async function GET() {
     );
   }
   return NextResponse.json(
-    { resumen: resumen.data, usuarios: usuarios.data ?? [], errores: errores.data ?? [] },
+    { resumen: resumen.data, usuarios: usuarios.data ?? [], errores: errores.data ?? [], mejoras: mejoras.data ?? [] },
     { headers: { "Cache-Control": "no-store" } }
   );
 }
